@@ -1,4 +1,4 @@
-name: Create Release on Tag
+name: Create Release x64
 # on: [workflow_dispatch]
 on:
   workflow_dispatch:
@@ -15,7 +15,7 @@ jobs:
         build_env:
           - hash: "5b1d6d4607e4a062319225dd8930541cd1974ebe"
             pkgarch: x86_64
-            target: x64
+            target: x86
             subtarget: 64
             vermagic: "10e4e247d5714222efa4e4c532bd80ae"
 
