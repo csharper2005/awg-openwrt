@@ -23,6 +23,11 @@ jobs:
             target: mediatek
             subtarget: filogic
             vermagic: "83850846aeb31a278a010941bbebf326"
+          - tag: "23.05.3"
+            pkgarch: arm_cortex-a15_neon-vfpv4
+            target: ipq806x
+            subtarget: generic
+            vermagic: "a4a720fe9c6431b81aae0bb9049bdab0"
 
     steps:
       - uses: actions/checkout@v4
