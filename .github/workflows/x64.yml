@@ -1,10 +1,10 @@
 name: Create Release x64
-on: [workflow_dispatch]
-#on:
-#  workflow_dispatch:
-#  push:
-#    tags:
-#      - "v*.*.*"
+#on: [workflow_dispatch]
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*.*.*"
 
 jobs:
   build:
