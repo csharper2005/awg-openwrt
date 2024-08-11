@@ -13,11 +13,11 @@ jobs:
     strategy:
       matrix:
         build_env:
-          - hash: "37636a8752ecdc0ab399c3f38979c6cfb5576bc6"
+          - hash: "54623c6a1daeb029858aab96a58e0ee8607f738b"
             pkgarch: x86_64
             target: x86
             subtarget: 64
-            vermagic: "bbb6e923b7995be1a2e27a670ed07546"
+            vermagic: "2e398c67f090c3654e410bca7e776644"
 
     steps:
       - uses: actions/checkout@v4
