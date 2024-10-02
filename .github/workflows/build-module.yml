@@ -1,10 +1,10 @@
 name: Create Release on Tag
 # on: [workflow_dispatch]
-#on:
-#  workflow_dispatch:
-#  push:
-#    tags:
-#      - "v*.*.*"
+on:
+  workflow_dispatch:
+  push:
+    tags:
+5      - "v*.*.*"
 
 jobs:
   build:
@@ -13,17 +13,17 @@ jobs:
     strategy:
       matrix:
         build_env:
-          - tag: "23.05.4"
+          - tag: "23.05.5"
             pkgarch: mipsel_24kc
             target: ramips
             subtarget: mt7621
             vermagic: "144de9e5c1a8813b724b14faa054d9f0"
-          - tag: "23.05.4"
+          - tag: "23.05.5"
             pkgarch: aarch64_cortex-a53
             target: mediatek
             subtarget: filogic
             vermagic: "03ba5b5fee47f2232a088e3cd9832aec"
-          - tag: "23.05.4"
+          - tag: "23.05.5"
             pkgarch: arm_cortex-a15_neon-vfpv4
             target: ipq806x
             subtarget: generic
