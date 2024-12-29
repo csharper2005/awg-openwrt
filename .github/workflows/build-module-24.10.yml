@@ -29,9 +29,9 @@ jobs:
             subtarget: generic
             vermagic: "80fea73e819b86f7fac398040ded5672"
           - tag: "24.10.0-rc4"
-            pkgarch: arm_cortex-a15_neon-vfpv4
-            target: ipq806x
-            subtarget: generic
+            pkgarch: x86_64
+            target: x86
+            subtarget: 64
             vermagic: "fdf628e4ac1bbb67c9c54e22238868e0"
 
     steps:
