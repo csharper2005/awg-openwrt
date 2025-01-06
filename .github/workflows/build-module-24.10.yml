@@ -27,12 +27,12 @@ jobs:
             pkgarch: arm_cortex-a15_neon-vfpv4
             target: ipq806x
             subtarget: generic
-            vermagic: "80fea73e819b86f7fac398040ded5672"
+            vermagic: "c5b2256bab6e8b2ad3cdcfd60809462b"
           - tag: "24.10.0-rc5"
             pkgarch: x86_64
             target: x86
             subtarget: 64
-            vermagic: "fdf628e4ac1bbb67c9c54e22238868e0"
+            vermagic: "5509b70aad67fe27570100db8e5f3b66"
 
     steps:
       - uses: actions/checkout@v4
