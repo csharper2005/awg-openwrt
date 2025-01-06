@@ -17,12 +17,12 @@ jobs:
             pkgarch: mipsel_24kc
             target: ramips
             subtarget: mt7621
-            vermagic: "fc5e5f442ac8adc9e18e3d9c5d0803a5"
+            vermagic: "3d0c1636575f45343698be0078bada5c"
           - tag: "24.10.0-rc5"
             pkgarch: aarch64_cortex-a53
             target: mediatek
             subtarget: filogic
-            vermagic: "56564de2705a53e5f6456d5babec92a2"
+            vermagic: "83c6d4e14f7353564d3cadaf38a15bef"
           - tag: "24.10.0-rc5"
             pkgarch: arm_cortex-a15_neon-vfpv4
             target: ipq806x
