@@ -13,26 +13,26 @@ jobs:
     strategy:
       matrix:
         build_env:
-          - tag: "24.10.0-rc5"
+          - tag: "24.10.0"
             pkgarch: mipsel_24kc
             target: ramips
             subtarget: mt7621
-            vermagic: "3d0c1636575f45343698be0078bada5c"
-          - tag: "24.10.0-rc5"
+            vermagic: "3abe85def815b59c6c75ac1f92135cb6"
+          - tag: "24.10.0"
             pkgarch: aarch64_cortex-a53
             target: mediatek
             subtarget: filogic
-            vermagic: "83c6d4e14f7353564d3cadaf38a15bef"
-          - tag: "24.10.0-rc5"
+            vermagic: "d649d775435da5a8637f7a955a80d331"
+          - tag: "24.10.0"
             pkgarch: arm_cortex-a15_neon-vfpv4
             target: ipq806x
             subtarget: generic
-            vermagic: "c5b2256bab6e8b2ad3cdcfd60809462b"
-          - tag: "24.10.0-rc5"
+            vermagic: "dd9e13746928f1f8b981cb287862653f"
+          - tag: "24.10.0"
             pkgarch: x86_64
             target: x86
             subtarget: 64
-            vermagic: "5509b70aad67fe27570100db8e5f3b66"
+            vermagic: "a21259e4f338051d27a6443a3a7f7f1f"
 
     steps:
       - uses: actions/checkout@v4
