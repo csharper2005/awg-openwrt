@@ -69,6 +69,9 @@ jobs:
           cp -r amneziawg-pkgs/amneziawg-go openwrt/package/
           cp -r amneziawg-pkgs/amneziawg-tools openwrt/package/
           cp -r amneziawg-pkgs/kmod-amneziawg openwrt/package/
+          cp -r amneziawg-pkgs/luci-proto-amneziawg openwrt/package/
+
+
 
       - name: Update PKG_SOURCE_VERSION and HASH
         run: |
@@ -123,7 +126,7 @@ jobs:
             openwrt/package/**
             openwrt/staging_dir/**
             openwrt/tmp/**
-  
+
       - name: Compile AmneziaWG packages (auto-detect package paths)
         env:
           compile_kmod: ${{ inputs.compile_kmod }}
@@ -172,7 +175,6 @@ jobs:
           if [ -n "$custom_vermagic" ]; then
             echo "vermagic=$custom_vermagic" > awgrelease/vermagic
           else
-            # try to find .vermagic under build_dir (pattern)
             vm=$(cat openwrt/build_dir/target-${{ inputs.openwrt_arch }}*/linux-${{ inputs.openwrt_target }}_${{ inputs.openwrt_subtarget }}/linux-*/.vermagic 2>/dev/null || true)
             if [ -n "$vm" ]; then
               echo "vermagic=$vm" > awgrelease/vermagic
@@ -186,16 +188,5 @@ jobs:
             find "openwrt/bin/targets/${{ inputs.openwrt_target }}/${{ inputs.openwrt_subtarget }}/packages" -maxdepth 1 -type f -name 'kmod-amneziawg*' -exec cp {} awgrelease \; || true
           fi
 
-          # copy other packages (ipk/apk)
-          find "openwrt/bin/packages/${{ inputs.openwrt_arch }}/" -maxdepth 2 -type f \( -name '*amneziawg*.ipk' -o -name '*amneziawg*.apk' \) -exec cp {} awgrelease \; || true
-
-          # include the commit log we generated earlier
-          if [ -f openwrt/UPDATED_COMMIT_LIST ]; then
-            cp openwrt/UPDATED_COMMIT_LIST awgrelease/UPDATED_COMMIT_LIST
-          fi
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: amneziawg-${{ inputs.openwrt_version }}_${{ inputs.openwrt_arch }}_${{ inputs.openwrt_target }}_${{ inputs.openwrt_subtarget }}
-          path: awgrelease/*
+          # copy all other packages including luci
+          find "openwrt/bin/packages/${{ inputs.openwrt_arch }}/" -type f \( -name '*amneziawg*.ipk' -o -name '*amneziawg*.apk' \) -exec cp {} awgrelease \;
