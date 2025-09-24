@@ -70,33 +70,33 @@ jobs:
       - name: Update PKG_SOURCE_VERSION & HASH
         run: |
           set -e -x
-          for pkg in amneziawg-go amneziawg-tools kmod-amneziawg; do
-            pkg_dir="immortalwrt/package/$pkg"
-            branch="master"
-            if [ "$pkg" = "kmod-amneziawg" ]; then
-              branch="feature/awg2"
-            fi
 
-            echo "--- Updating $pkg from branch $branch ---"
+          update_pkg() {
+            local pkg_dir="$1"
+            local repo="$2"
+            local branch="$3"
 
-            # Получаем последний коммит для указанной ветки
-            commit=$(git ls-remote "https://github.com/amnezia-vpn/$pkg.git" "$branch" | awk '{print $1; exit}')
-            url="https://github.com/amnezia-vpn/$pkg/archive/$commit.tar.gz"
+            echo "--- Updating $pkg_dir from $branch ---"
 
-            # Считаем SHA256 хеш архива
+            commit=$(git ls-remote "$repo" "$branch" | awk '{print $1; exit}')
+            url="$repo/archive/$commit.tar.gz"
             hash=$(curl -L --retry 3 -s "$url" | sha256sum | cut -d' ' -f1)
 
-            # Обновляем Makefile пакета
             if [ -d "$pkg_dir" ]; then
               cd "$pkg_dir"
               sed -i "s/^PKG_SOURCE_VERSION:=.*/PKG_SOURCE_VERSION:=$commit/" Makefile
               sed -i "s/^PKG_MIRROR_HASH:=.*/PKG_MIRROR_HASH:=$hash/" Makefile
               cd - >/dev/null
-              echo "--- $pkg updated: $commit ---"
+              echo "--- $pkg_dir updated: $commit ---"
             else
-              echo "Warning: package directory $pkg_dir not found"
+              echo "Warning: directory $pkg_dir not found"
             fi
-          done
+          }
+
+          update_pkg "amneziawg/amneziawg-go" "https://github.com/amnezia-vpn/amneziawg-go.git" "master"
+          update_pkg "amneziawg/amneziawg-tools" "https://github.com/amnezia-vpn/amneziawg-tools.git" "master"
+          update_pkg "amneziawg/kmod-amneziawg" "https://github.com/amnezia-vpn/amneziawg-linux-kernel-module.git" "feature/awg2"
+
 
       - name: Setup feeds & config
         run: |
