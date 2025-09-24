@@ -37,7 +37,13 @@ define Build/Prepare
 endef
 
 define Build/Compile
-	$(MAKE_VARS) $(MAKE) -C "$(LINUX_DIR)" $(KERNEL_MAKE_FLAGS) M="$(PKG_BUILD_DIR)/$(MAKE_PATH)" EXTRA_CFLAGS="$(BUILDFLAGS)" WIREGUARD_VERSION="$(WIREGUARD_VERSION)" modules
+	# Используем kernel headers из кеша
+	$(MAKE_VARS) $(MAKE) -C "$(STAGING_DIR)/target-$(TARGET)/linux-headers" \
+		M="$(PKG_BUILD_DIR)/$(MAKE_PATH)" \
+		EXTRA_CFLAGS="$(BUILDFLAGS)" \
+		WIREGUARD_VERSION="$(WIREGUARD_VERSION)" \
+		VERMAGIC="$(shell cat $(STAGING_DIR)/target-$(TARGET)/linux-headers/.vermagic)" \
+		modules
 endef
 
 $(eval $(call KernelPackage,amneziawg))
