@@ -55,69 +55,29 @@ jobs:
         ref: ${{ inputs.openwrt_version == 'SNAPSHOT' && 'master' || format('v{0}', inputs.openwrt_version) }}
         fetch-depth: 0
 
-    - name: Update PKG_SOURCE_VERSION and HASH (robust search)
+    - name: Update PKG_SOURCE_VERSION and HASH
       run: |
-        set -eo pipefail -x
-
-        LOGFILE="openwrt/UPDATED_COMMIT_LIST"
+        set -e -x
+        LOGFILE=openwrt/UPDATED_COMMIT_LIST
         : > "$LOGFILE"
 
         update_pkg() {
           pkg="$1"; repo="$2"; branch="$3"
           echo "--- update $pkg from $repo#$branch ---"
 
-          # try to find Makefile that contains PKG_NAME matching package
-          mf=$(grep -RIl --exclude-dir=.git "PKG_NAME:.*${pkg}" openwrt/package 2>/dev/null || true)
-          if [ -n "$mf" ]; then
-            pkg_dir=$(dirname "$(echo "$mf" | head -n1)")
-          else
-            # fallback: dir with exact name
-            if [ -d "openwrt/package/${pkg}" ]; then
-              pkg_dir="openwrt/package/${pkg}"
-            else
-              # fallback: find Makefile by path matching the pkg substring (maxdepth 4)
-              mf=$(find openwrt/package -maxdepth 4 -type f -name Makefile -path "*${pkg}*" -print -quit 2>/dev/null || true)
-              if [ -n "$mf" ]; then
-                pkg_dir=$(dirname "$mf")
-              fi
-            fi
-          fi
-
-          if [ -z "${pkg_dir}" ]; then
-            echo "ERROR: package directory for '${pkg}' not found under openwrt/package" >&2
+          pkg_dir="openwrt/package/$pkg"
+          if [ ! -d "$pkg_dir" ]; then
+            echo "ERROR: $pkg_dir does not exist" >&2
             return 1
           fi
 
-          echo "Found package dir: $pkg_dir"
-
-          # resolve commit
-          commit=$(git ls-remote "$repo" "$branch" | awk '{print $1; exit}' || true)
-          if [ -z "$commit" ]; then
-            echo "ERROR: cannot resolve commit for $repo#$branch" >&2
-            return 1
-          fi
-
-          # download archive and compute sha256
+          commit=$(git ls-remote "$repo" "$branch" | awk '{print $1; exit}')
           url="${repo%.git}/archive/${commit}.tar.gz"
-          hash=$(curl -L --retry 3 --silent "$url" | sha256sum | cut -d' ' -f1 || true)
-          if [ -z "$hash" ]; then
-            echo "ERROR: cannot fetch archive for $commit" >&2
-            return 1
-          fi
+          hash=$(curl -L --retry 3 -s "$url" | sha256sum | cut -d' ' -f1)
 
-          # update Makefile safely (add if missing)
           cd "$pkg_dir"
-          if grep -q "^PKG_SOURCE_VERSION" Makefile 2>/dev/null; then
-            sed -E -i "s/^PKG_SOURCE_VERSION[[:space:]]*:=[[:space:]]*.*/PKG_SOURCE_VERSION:=$commit/" Makefile
-          else
-            echo "PKG_SOURCE_VERSION:=$commit" >> Makefile
-          fi
-
-          if grep -q "^PKG_MIRROR_HASH" Makefile 2>/dev/null; then
-            sed -E -i "s/^PKG_MIRROR_HASH[[:space:]]*:=[[:space:]]*.*/PKG_MIRROR_HASH:=$hash/" Makefile
-          else
-            echo "PKG_MIRROR_HASH:=$hash" >> Makefile
-          fi
+          sed -i "s/^PKG_SOURCE_VERSION:=.*/PKG_SOURCE_VERSION:=$commit/" Makefile
+          sed -i "s/^PKG_MIRROR_HASH:=.*/PKG_MIRROR_HASH:=$hash/" Makefile
           cd - >/dev/null
 
           echo "$pkg $commit $hash $repo $branch" >> "$LOGFILE"
@@ -127,6 +87,9 @@ jobs:
         update_pkg amneziawg-go https://github.com/amnezia-vpn/amneziawg-go.git master
         update_pkg amneziawg-tools https://github.com/amnezia-vpn/amneziawg-tools.git master
         update_pkg kmod-amneziawg https://github.com/amnezia-vpn/amneziawg-linux-kernel-module.git feature/awg2
+
+        echo "=== Updated commits list ==="
+        cat "$LOGFILE"
 
     - name: Restore cached tools and kernel
       uses: actions/cache/restore@v4
