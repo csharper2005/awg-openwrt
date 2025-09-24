@@ -71,42 +71,6 @@ jobs:
           cp -r amneziawg-pkgs/kmod-amneziawg openwrt/package/
           cp -r amneziawg-pkgs/luci-proto-amneziawg openwrt/package/
 
-      - name: Update PKG_SOURCE_VERSION and HASH
-        run: |
-          set -e -x
-          LOGFILE=openwrt/UPDATED_COMMIT_LIST
-          : > "$LOGFILE"
-
-          update_pkg() {
-            pkg="$1"; repo="$2"; branch="$3"
-            echo "--- update $pkg from $repo#$branch ---"
-
-            pkg_dir="openwrt/package/$pkg"
-            if [ ! -d "$pkg_dir" ]; then
-              echo "ERROR: $pkg_dir does not exist" >&2
-              return 1
-            fi
-
-            commit=$(git ls-remote "$repo" "$branch" | awk '{print $1; exit}')
-            url="${repo%.git}/archive/${commit}.tar.gz"
-            hash=$(curl -L --retry 3 -s "$url" | sha256sum | cut -d' ' -f1)
-
-            cd "$pkg_dir"
-            sed -i "s/^PKG_SOURCE_VERSION:=.*/PKG_SOURCE_VERSION:=$commit/" Makefile
-            sed -i "s/^PKG_MIRROR_HASH:=.*/PKG_MIRROR_HASH:=$hash/" Makefile
-            cd - >/dev/null
-
-            echo "$pkg $commit $hash $repo $branch" >> "$LOGFILE"
-            echo "--- done $pkg ---"
-          }
-
-          update_pkg amneziawg-go https://github.com/amnezia-vpn/amneziawg-go.git master
-          update_pkg amneziawg-tools https://github.com/amnezia-vpn/amneziawg-tools.git master
-          update_pkg kmod-amneziawg https://github.com/amnezia-vpn/amneziawg-linux-kernel-module.git feature/awg2
-
-          echo "=== Updated commits list ==="
-          cat "$LOGFILE"
-
       - name: Restore cached tools and kernel
         uses: actions/cache/restore@v4
         with:
@@ -124,15 +88,15 @@ jobs:
             openwrt/staging_dir/**
             openwrt/tmp/**
 
-      - name: Compile AmneziaWG packages (auto-detect package paths)
+      - name: Compile AmneziaWG packages with optional vermagic
         env:
           compile_kmod: ${{ inputs.compile_kmod }}
           compile_go: ${{ inputs.compile_go }}
+          custom_vermagic: ${{ inputs.custom_vermagic }}
         run: |
           set -e -x
           cd openwrt
 
-          # find package dirs whose Makefile contains PKG_NAME with substring 'amneziawg'
           pkg_dirs=$(find package -maxdepth 4 -type f -name Makefile -exec grep -Il "PKG_NAME:.*amneziawg" {} \; | xargs -r -n1 dirname || true)
 
           if [ -z "$pkg_dirs" ]; then
@@ -144,7 +108,6 @@ jobs:
             rel=${d#package/}
             base=$(basename "$rel")
             echo ">> Building package: $rel (basename $base)"
-            # honor flags
             if [[ "$base" == kmod-* && "$compile_kmod" != "true" ]]; then
               echo "Skipping kmod (compile_kmod=false): $rel"
               continue
@@ -157,7 +120,13 @@ jobs:
             make package/"$rel"/clean -j $(nproc) || true
             make package/"$rel"/download -j $(nproc)
             make package/"$rel"/prepare -j $(nproc)
-            make package/"$rel"/compile -j $(nproc)
+
+            if [[ "$base" == kmod-* && -n "$custom_vermagic" ]]; then
+              echo "Using custom vermagic: $custom_vermagic"
+              make package/"$rel"/compile VERMAGIC_OVERRIDE="$custom_vermagic" -j $(nproc)
+            else
+              make package/"$rel"/compile -j $(nproc)
+            fi
           done
 
       - name: Prepare artifacts
@@ -168,7 +137,7 @@ jobs:
           set -e -x
           mkdir -p awgrelease
 
-          # include vermagic (override if provided)
+          # include vermagic
           if [ -n "$custom_vermagic" ]; then
             echo "vermagic=$custom_vermagic" > awgrelease/vermagic
           else
@@ -187,11 +156,6 @@ jobs:
 
           # copy all other packages including luci
           find "openwrt/bin/packages/${{ inputs.openwrt_arch }}/" -type f \( -name '*amneziawg*.ipk' -o -name '*amneziawg*.apk' \) -exec cp {} awgrelease \; || true
-
-          # include the commit log we generated earlier
-          if [ -f openwrt/UPDATED_COMMIT_LIST ]; then
-            cp openwrt/UPDATED_COMMIT_LIST awgrelease/UPDATED_COMMIT_LIST
-          fi
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
