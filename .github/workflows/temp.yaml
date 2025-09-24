@@ -41,7 +41,7 @@ on:
 
 jobs:
   build-amneziawg:
-    name: "Build AmneziaWG for OpenWrt..."
+    name: "Build AmneziaWG for OpenWrt: ${{ inputs.openwrt_version }} - ${{ inputs.openwrt_arch }} - ${{ inputs.openwrt_target }}/${{ inputs.openwrt_subtarget }}"
     runs-on: ubuntu-22.04
     defaults:
       run:
@@ -54,7 +54,7 @@ jobs:
           repository: openwrt/openwrt
           ref: ${{ inputs.openwrt_version == 'SNAPSHOT' && 'master' || format('v{0}', inputs.openwrt_version) }}
           fetch-depth: 0
-          
+
       - name: Checkout AmneziaWG packages
         uses: actions/checkout@v5
         with:
@@ -70,8 +70,6 @@ jobs:
           cp -r amneziawg-pkgs/amneziawg-tools openwrt/package/
           cp -r amneziawg-pkgs/kmod-amneziawg openwrt/package/
           cp -r amneziawg-pkgs/luci-proto-amneziawg openwrt/package/
-
-
 
       - name: Update PKG_SOURCE_VERSION and HASH
         run: |
@@ -108,7 +106,6 @@ jobs:
 
           echo "=== Updated commits list ==="
           cat "$LOGFILE"
-
 
       - name: Restore cached tools and kernel
         uses: actions/cache/restore@v4
@@ -189,4 +186,15 @@ jobs:
           fi
 
           # copy all other packages including luci
-          find "openwrt/bin/packages/${{ inputs.openwrt_arch }}/" -type f \( -name '*amneziawg*.ipk' -o -name '*amneziawg*.apk' \) -exec cp {} awgrelease \;
+          find "openwrt/bin/packages/${{ inputs.openwrt_arch }}/" -type f \( -name '*amneziawg*.ipk' -o -name '*amneziawg*.apk' \) -exec cp {} awgrelease \; || true
+
+          # include the commit log we generated earlier
+          if [ -f openwrt/UPDATED_COMMIT_LIST ]; then
+            cp openwrt/UPDATED_COMMIT_LIST awgrelease/UPDATED_COMMIT_LIST
+          fi
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: amneziawg-${{ inputs.openwrt_version }}_${{ inputs.openwrt_arch }}_${{ inputs.openwrt_target }}_${{ inputs.openwrt_subtarget }}
+          path: awgrelease/*
