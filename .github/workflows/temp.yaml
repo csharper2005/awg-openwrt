@@ -47,7 +47,7 @@ jobs:
         uses: actions/checkout@v5
         with:
           repository: immortalwrt/immortalwrt
-          ref: ${{ inputs.immortal_tag }}
+          ref: v${{ inputs.immortal_tag }}
           fetch-depth: 0
           path: immortalwrt
 
