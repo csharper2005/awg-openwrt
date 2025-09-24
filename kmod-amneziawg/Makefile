@@ -8,7 +8,6 @@ WIREGUARD_VERSION:=1.0.0
 
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://github.com/amnezia-vpn/amneziawg-linux-kernel-module.git
-# Reference: feature/awg2 branch
 PKG_SOURCE_VERSION:=2a94fcc67c332bbb4b983fcebe03ac31057ead19
 PKG_MIRROR_HASH:=66f5d9aa9b9459bac5280d88c5d84da7595ae96567a528012b2f028a267cb63c
 
@@ -37,13 +36,18 @@ define Build/Prepare
 endef
 
 define Build/Compile
-	# Используем kernel headers из кеша
-	$(MAKE_VARS) $(MAKE) -C "$(STAGING_DIR)/target-$(TARGET)/linux-headers" \
+	# Подставляем кастомный vermagic, если задан
+	if [ -n "$(VERMAGIC_OVERRIDE)" ]; then \
+		EXTRA_VERMAGIC="-V $(VERMAGIC_OVERRIDE)"; \
+	else \
+		EXTRA_VERMAGIC=""; \
+	fi; \
+	$(MAKE_VARS) $(MAKE) -C "$(LINUX_DIR)" $(KERNEL_MAKE_FLAGS) \
 		M="$(PKG_BUILD_DIR)/$(MAKE_PATH)" \
 		EXTRA_CFLAGS="$(BUILDFLAGS)" \
 		WIREGUARD_VERSION="$(WIREGUARD_VERSION)" \
-		VERMAGIC="$(shell cat $(STAGING_DIR)/target-$(TARGET)/linux-headers/.vermagic)" \
-		modules
+		$(EXTRA_VERMAGIC) modules
 endef
 
 $(eval $(call KernelPackage,amneziawg))
+
