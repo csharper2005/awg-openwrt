@@ -1,164 +1,133 @@
-name: Test Build AmneziaWG from cache
+name: Build AmneziaWG on ImmortalWrt
 
 on:
   workflow_dispatch:
     inputs:
-      openwrt_version:
-        description: "OpenWrt version"
-        type: string
+      immortal_tag:
+        description: "ImmortalWrt release/tag"
         required: true
+        type: string
         default: "24.10.3"
-      openwrt_arch:
-        description: "OpenWrt arch"
-        type: string
+      pkgarch:
+        description: "Package architecture"
         required: true
+        type: string
         default: "aarch64_cortex-a53"
-      openwrt_target:
-        description: "OpenWrt target"
-        type: string
+      target:
+        description: "Target platform"
         required: true
+        type: string
         default: "mediatek"
-      openwrt_subtarget:
-        description: "OpenWrt subtarget"
-        type: string
+      subtarget:
+        description: "Target subplatform"
         required: true
+        type: string
         default: "filogic"
       compile_kmod:
-        description: "Compile kernel module implementation"
-        type: boolean
+        description: "Compile kernel module"
         required: true
+        type: boolean
         default: true
       compile_go:
         description: "Compile Go implementation"
-        type: boolean
         required: true
+        type: boolean
         default: true
       custom_vermagic:
         description: "Override vermagic (optional)"
-        type: string
         required: false
-        default: "3ca4b8cb2fcc3a2027e8496143a86cab"
+        type: string
+        default: ""
 
 jobs:
-  build-amneziawg:
-    name: "Build AmneziaWG for OpenWrt: ${{ inputs.openwrt_version }} - ${{ inputs.openwrt_arch }} - ${{ inputs.openwrt_target }}/${{ inputs.openwrt_subtarget }}"
-    runs-on: ubuntu-22.04
-    defaults:
-      run:
-        shell: bash
+  build:
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout OpenWrt repository
+      - name: Checkout ImmortalWrt
         uses: actions/checkout@v5
         with:
-          path: openwrt
-          repository: openwrt/openwrt
-          ref: ${{ inputs.openwrt_version == 'SNAPSHOT' && 'master' || format('v{0}', inputs.openwrt_version) }}
+          repository: immortalwrt/immortalwrt
+          ref: ${{ inputs.immortal_tag }}
           fetch-depth: 0
+          path: immortalwrt
 
-      - name: Checkout AmneziaWG packages
+      - name: Checkout latest AmneziaWG
         uses: actions/checkout@v5
         with:
-          path: amneziawg-pkgs
           repository: kozhini/amneziawg-openwrt
           ref: master
           fetch-depth: 0
+          path: amneziawg
 
-      - name: Copy local packages into OpenWrt
+      - name: Copy AmneziaWG packages
         run: |
-          mkdir -p openwrt/package
-          cp -r amneziawg-pkgs/amneziawg-go openwrt/package/
-          cp -r amneziawg-pkgs/amneziawg-tools openwrt/package/
-          cp -r amneziawg-pkgs/kmod-amneziawg openwrt/package/
-          cp -r amneziawg-pkgs/luci-proto-amneziawg openwrt/package/
+          mkdir -p immortalwrt/package
+          cp -r amneziawg/amneziawg-go immortalwrt/package/
+          cp -r amneziawg/amneziawg-tools immortalwrt/package/
+          cp -r amneziawg/kmod-amneziawg immortalwrt/package/
+          cp -r amneziawg/luci-proto-amneziawg immortalwrt/package/
 
-      - name: Restore cached tools and kernel
-        uses: actions/cache/restore@v4
-        with:
-          key: ${{ runner.os }}-openwrt-cache-toolchain-kernel-${{ inputs.openwrt_version }}-${{ inputs.openwrt_arch }}-${{ inputs.openwrt_target }}-${{ inputs.openwrt_subtarget }}
-          fail-on-cache-miss: true
-          path: |
-            openwrt/.config
-            openwrt/.config.old
-            openwrt/feeds.conf.default
-            openwrt/bin/**
-            openwrt/build_dir/**
-            openwrt/dl/**
-            openwrt/feeds/**
-            openwrt/package/**
-            openwrt/staging_dir/**
-            openwrt/tmp/**
-
-      - name: Compile AmneziaWG packages with optional vermagic
-        env:
-          compile_kmod: ${{ inputs.compile_kmod }}
-          compile_go: ${{ inputs.compile_go }}
-          custom_vermagic: ${{ inputs.custom_vermagic }}
+      - name: Update PKG_SOURCE_VERSION & HASH
         run: |
-          set -e -x
-          cd openwrt
-
-          pkg_dirs=$(find package -maxdepth 4 -type f -name Makefile -exec grep -Il "PKG_NAME:.*amneziawg" {} \; | xargs -r -n1 dirname || true)
-
-          if [ -z "$pkg_dirs" ]; then
-            echo "No amneziawg packages found to build"
-            exit 1
-          fi
-
-          for d in $pkg_dirs; do
-            rel=${d#package/}
-            base=$(basename "$rel")
-            echo ">> Building package: $rel (basename $base)"
-            if [[ "$base" == kmod-* && "$compile_kmod" != "true" ]]; then
-              echo "Skipping kmod (compile_kmod=false): $rel"
-              continue
-            fi
-            if [[ "$base" == *-go && "$compile_go" != "true" ]]; then
-              echo "Skipping go (compile_go=false): $rel"
-              continue
-            fi
-
-            make package/"$rel"/clean -j $(nproc) || true
-            make package/"$rel"/download -j $(nproc)
-            make package/"$rel"/prepare -j $(nproc)
-
-            if [[ "$base" == kmod-* && -n "$custom_vermagic" ]]; then
-              echo "Using custom vermagic: $custom_vermagic"
-              make package/"$rel"/compile VERMAGIC_OVERRIDE="$custom_vermagic" -j $(nproc)
-            else
-              make package/"$rel"/compile -j $(nproc)
-            fi
+          for pkg in amneziawg-go amneziawg-tools kmod-amneziawg; do
+            dir="immortalwrt/package/$pkg"
+            branch="master"
+            if [ "$pkg" = "kmod-amneziawg" ]; then branch="feature/awg2"; fi
+            commit=$(git ls-remote "https://github.com/amnezia-vpn/$pkg.git" "$branch" | awk '{print $1; exit}')
+            url="https://github.com/amnezia-vpn/$pkg/archive/$commit.tar.gz"
+            hash=$(curl -L --retry 3 -s "$url" | sha256sum | cut -d' ' -f1)
+            cd "$dir"
+            sed -i "s/^PKG_SOURCE_VERSION:=.*/PKG_SOURCE_VERSION:=$commit/" Makefile
+            sed -i "s/^PKG_MIRROR_HASH:=.*/PKG_MIRROR_HASH:=$hash/" Makefile
+            cd - >/dev/null
           done
 
-      - name: Prepare artifacts
-        env:
-          compile_kmod: ${{ inputs.compile_kmod }}
-          custom_vermagic: ${{ inputs.custom_vermagic }}
+      - name: Setup feeds & config
         run: |
-          set -e -x
-          mkdir -p awgrelease
+          cd immortalwrt
+          wget https://downloads.immortalwrt.org/releases/${{ inputs.immortal_tag }}/targets/${{ inputs.target}}/${{ inputs.subtarget}}/config.buildinfo -O .config
+          echo "CONFIG_PACKAGE_kmod-amneziawg=m" >> .config
+          echo "CONFIG_PACKAGE_amneziawg-tools=y" >> .config
+          echo "CONFIG_PACKAGE_luci-app-amneziawg=y" >> .config
+          echo "CONFIG_PACKAGE_kmod-crypto-lib-chacha20=m" >> .config
+          echo "CONFIG_PACKAGE_kmod-crypto-lib-chacha20poly1305=m" >> .config
+          echo "CONFIG_PACKAGE_kmod-crypto-chacha20poly1305=m" >> .config
+          make defconfig
 
-          # include vermagic
-          if [ -n "$custom_vermagic" ]; then
-            echo "vermagic=$custom_vermagic" > awgrelease/vermagic
-          else
-            vm=$(cat openwrt/build_dir/target-${{ inputs.openwrt_arch }}*/linux-${{ inputs.openwrt_target }}_${{ inputs.openwrt_subtarget }}/linux-*/.vermagic 2>/dev/null || true)
-            if [ -n "$vm" ]; then
-              echo "vermagic=$vm" > awgrelease/vermagic
-            else
-              echo "vermagic=UNKNOWN" > awgrelease/vermagic
+      - name: Build toolchain & kernel
+        run: |
+          cd immortalwrt
+          make tools/install -j$(nproc)
+          make toolchain/install -j$(nproc)
+          make target/linux/compile -j$(nproc)
+
+      - name: Build AmneziaWG packages
+        run: |
+          cd immortalwrt
+          if [ "${{ inputs.compile_kmod }}" = "true" ]; then
+            VERMAGIC=${{ inputs.custom_vermagic }}
+            if [ -z "$VERMAGIC" ]; then
+              VERMAGIC=$(cat build_dir/target-*/linux-*/linux-*/.vermagic)
             fi
+            echo "Using vermagic: $VERMAGIC"
+            make package/kmod-amneziawg/{clean,download,prepare,compile} VERMAGIC_OVERRIDE="$VERMAGIC" -j$(nproc)
+          fi
+          if [ "${{ inputs.compile_go }}" = "true" ]; then
+            make package/amneziawg-tools/{clean,download,prepare,compile} -j$(nproc)
+            make package/luci-app-amneziawg/{clean,download,prepare,compile} -j$(nproc)
           fi
 
-          # copy built kmod if exists
-          if [ "${{ env.compile_kmod }}" = "true" ]; then
-            find "openwrt/bin/targets/${{ inputs.openwrt_target }}/${{ inputs.openwrt_subtarget }}/packages" -maxdepth 1 -type f -name 'kmod-amneziawg*' -exec cp {} awgrelease \; || true
-          fi
-
-          # copy all other packages including luci
-          find "openwrt/bin/packages/${{ inputs.openwrt_arch }}/" -type f \( -name '*amneziawg*.ipk' -o -name '*amneziawg*.apk' \) -exec cp {} awgrelease \; || true
+      - name: Prepare artifacts
+        run: |
+          cd immortalwrt
+          mkdir -p awgrelease
+          postfix="v${{ inputs.immortal_tag }}_${{ inputs.pkgarch }}_${{ inputs.target }}_${{ inputs.subtarget }}"
+          cp bin/packages/${{ inputs.pkgarch }}/awgopenwrt/amneziawg-tools_*.ipk awgrelease/amneziawg-tools_${postfix}.ipk
+          cp bin/packages/${{ inputs.pkgarch }}/awgopenwrt/luci-app-amneziawg_*.ipk awgrelease/luci-app-amneziawg_${postfix}.ipk
+          cp bin/targets/${{ inputs.target}}/${{ inputs.subtarget}}/packages/kmod-amneziawg_*.ipk awgrelease/kmod-amneziawg_${postfix}.ipk
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: amneziawg-${{ inputs.openwrt_version }}_${{ inputs.openwrt_arch }}_${{ inputs.openwrt_target }}_${{ inputs.openwrt_subtarget }}
-          path: awgrelease/*
+          name: amneziawg-${{ inputs.immortal_tag }}_${{ inputs.pkgarch }}_${{ inputs.target }}_${{ inputs.subtarget }}
+          path: immortalwrt/awgrelease/*
