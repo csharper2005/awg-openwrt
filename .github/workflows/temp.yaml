@@ -70,14 +70,6 @@ jobs:
           cp -r amneziawg-pkgs/amneziawg-tools openwrt/package/
           cp -r amneziawg-pkgs/kmod-amneziawg openwrt/package/
 
-
-      - name: Copy local packages into OpenWrt
-        run: |
-          mkdir -p openwrt/package
-          cp -r amneziawg-go openwrt/package/
-          cp -r amneziawg-tools openwrt/package/
-          cp -r kmod-amneziawg openwrt/package/
-
       - name: Update PKG_SOURCE_VERSION and HASH
         run: |
           set -e -x
