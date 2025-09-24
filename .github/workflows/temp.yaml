@@ -54,6 +54,22 @@ jobs:
           repository: openwrt/openwrt
           ref: ${{ inputs.openwrt_version == 'SNAPSHOT' && 'master' || format('v{0}', inputs.openwrt_version) }}
           fetch-depth: 0
+          
+      - name: Checkout AmneziaWG packages
+        uses: actions/checkout@v5
+        with:
+          path: amneziawg-pkgs
+          repository: kozhini/amneziawg-openwrt
+          ref: master
+          fetch-depth: 0
+
+      - name: Copy local packages into OpenWrt
+        run: |
+          mkdir -p openwrt/package
+          cp -r amneziawg-pkgs/amneziawg-go openwrt/package/
+          cp -r amneziawg-pkgs/amneziawg-tools openwrt/package/
+          cp -r amneziawg-pkgs/kmod-amneziawg openwrt/package/
+
 
       - name: Copy local packages into OpenWrt
         run: |
