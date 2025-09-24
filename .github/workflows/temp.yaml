@@ -69,17 +69,33 @@ jobs:
 
       - name: Update PKG_SOURCE_VERSION & HASH
         run: |
+          set -e -x
           for pkg in amneziawg-go amneziawg-tools kmod-amneziawg; do
-            dir="immortalwrt/package/$pkg"
+            pkg_dir="immortalwrt/package/$pkg"
             branch="master"
-            if [ "$pkg" = "kmod-amneziawg" ]; then branch="feature/awg2"; fi
+            if [ "$pkg" = "kmod-amneziawg" ]; then
+              branch="feature/awg2"
+            fi
+
+            echo "--- Updating $pkg from branch $branch ---"
+
+            # Получаем последний коммит для указанной ветки
             commit=$(git ls-remote "https://github.com/amnezia-vpn/$pkg.git" "$branch" | awk '{print $1; exit}')
             url="https://github.com/amnezia-vpn/$pkg/archive/$commit.tar.gz"
+
+            # Считаем SHA256 хеш архива
             hash=$(curl -L --retry 3 -s "$url" | sha256sum | cut -d' ' -f1)
-            cd "$dir"
-            sed -i "s/^PKG_SOURCE_VERSION:=.*/PKG_SOURCE_VERSION:=$commit/" Makefile
-            sed -i "s/^PKG_MIRROR_HASH:=.*/PKG_MIRROR_HASH:=$hash/" Makefile
-            cd - >/dev/null
+
+            # Обновляем Makefile пакета
+            if [ -d "$pkg_dir" ]; then
+              cd "$pkg_dir"
+              sed -i "s/^PKG_SOURCE_VERSION:=.*/PKG_SOURCE_VERSION:=$commit/" Makefile
+              sed -i "s/^PKG_MIRROR_HASH:=.*/PKG_MIRROR_HASH:=$hash/" Makefile
+              cd - >/dev/null
+              echo "--- $pkg updated: $commit ---"
+            else
+              echo "Warning: package directory $pkg_dir not found"
+            fi
           done
 
       - name: Setup feeds & config
