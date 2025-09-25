@@ -1,4 +1,4 @@
-name: Build AmneziaWG on ImmortalWrt
+name: Build AmneziaWG on ImmortalWrt SDK
 
 on:
   workflow_dispatch:
@@ -33,25 +33,12 @@ on:
         required: true
         type: boolean
         default: true
-      custom_vermagic:
-        description: "Override vermagic (optional)"
-        required: false
-        type: string
-        default: ""
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout ImmortalWrt
-        uses: actions/checkout@v5
-        with:
-          repository: immortalwrt/immortalwrt
-          ref: v${{ inputs.immortal_tag }}
-          fetch-depth: 0
-          path: immortalwrt
-
-      - name: Checkout latest AmneziaWG
+      - name: Checkout AmneziaWG packages
         uses: actions/checkout@v5
         with:
           repository: kozhini/amneziawg-openwrt
@@ -59,29 +46,31 @@ jobs:
           fetch-depth: 0
           path: amneziawg
 
-      - name: Copy AmneziaWG packages
+      - name: Download ImmortalWrt SDK
         run: |
-          mkdir -p immortalwrt/package
-          cp -r amneziawg/amneziawg-go immortalwrt/package/
-          cp -r amneziawg/amneziawg-tools immortalwrt/package/
-          cp -r amneziawg/kmod-amneziawg immortalwrt/package/
-          cp -r amneziawg/luci-proto-amneziawg immortalwrt/package/
+          wget https://downloads.immortalwrt.org/releases/${{ inputs.immortal_tag }}/targets/${{ inputs.target}}/${{ inputs.subtarget}}/immortalwrt-sdk-${{ inputs.immortal_tag }}-${{ inputs.target}}-${{ inputs.subtarget}}_gcc-13.3.0_musl.Linux-x86_64.tar.zst
+          tar --zstd -xf immortalwrt-sdk-*.tar.zst
+          mv immortalwrt-sdk-* sdk
+
+      - name: Copy AmneziaWG packages into SDK
+        run: |
+          mkdir -p sdk/package
+          cp -r amneziawg/amneziawg-go sdk/package/
+          cp -r amneziawg/amneziawg-tools sdk/package/
+          cp -r amneziawg/kmod-amneziawg sdk/package/
+          cp -r amneziawg/luci-proto-amneziawg sdk/package/
 
       - name: Update PKG_SOURCE_VERSION & HASH
         run: |
           set -e -x
-
           update_pkg() {
             local pkg_dir="$1"
             local repo="$2"
             local branch="$3"
-
             echo "--- Updating $pkg_dir from $branch ---"
-
             commit=$(git ls-remote "$repo" "$branch" | awk '{print $1; exit}')
             url="$repo/archive/$commit.tar.gz"
             hash=$(curl -L --retry 3 -s "$url" | sha256sum | cut -d' ' -f1)
-
             if [ -d "$pkg_dir" ]; then
               cd "$pkg_dir"
               sed -i "s/^PKG_SOURCE_VERSION:=.*/PKG_SOURCE_VERSION:=$commit/" Makefile
@@ -92,89 +81,47 @@ jobs:
               echo "Warning: directory $pkg_dir not found"
             fi
           }
-
-          update_pkg "amneziawg/amneziawg-go" "https://github.com/amnezia-vpn/amneziawg-go.git" "master"
-          update_pkg "amneziawg/amneziawg-tools" "https://github.com/amnezia-vpn/amneziawg-tools.git" "master"
-          update_pkg "amneziawg/kmod-amneziawg" "https://github.com/amnezia-vpn/amneziawg-linux-kernel-module.git" "feature/awg2"
-
+          update_pkg "sdk/package/amneziawg-go" "https://github.com/amnezia-vpn/amneziawg-go.git" "master"
+          update_pkg "sdk/package/amneziawg-tools" "https://github.com/amnezia-vpn/amneziawg-tools.git" "master"
+          update_pkg "sdk/package/kmod-amneziawg" "https://github.com/amnezia-vpn/amneziawg-linux-kernel-module.git" "feature/awg2"
 
       - name: Setup feeds & config
         run: |
-          cd immortalwrt
-          wget https://downloads.immortalwrt.org/releases/${{ inputs.immortal_tag }}/targets/${{ inputs.target}}/${{ inputs.subtarget}}/config.buildinfo -O .config
-          echo "CONFIG_PACKAGE_kmod-amneziawg=m" >> .config
-          echo "CONFIG_PACKAGE_amneziawg-tools=y" >> .config
-          echo "CONFIG_PACKAGE_luci-app-amneziawg=y" >> .config
-          echo "CONFIG_PACKAGE_kmod-crypto-lib-chacha20=m" >> .config
-          echo "CONFIG_PACKAGE_kmod-crypto-lib-chacha20poly1305=m" >> .config
-          echo "CONFIG_PACKAGE_kmod-crypto-chacha20poly1305=m" >> .config
+          cd sdk
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
+          cat > .config <<EOF
+          CONFIG_PACKAGE_kmod-amneziawg=m
+          CONFIG_PACKAGE_amneziawg-tools=y
+          CONFIG_PACKAGE_luci-app-amneziawg=y
+          CONFIG_PACKAGE_kmod-crypto-lib-chacha20=m
+          CONFIG_PACKAGE_kmod-crypto-lib-chacha20poly1305=m
+          CONFIG_PACKAGE_kmod-crypto-chacha20poly1305=m
+          EOF
           make defconfig
-
-      - name: Build toolchain & kernel
-        run: |
-          cd immortalwrt
-          make tools/install -j$(nproc)
-          make toolchain/install -j$(nproc)
-          make target/linux/compile -j$(nproc)
 
       - name: Build AmneziaWG packages
         run: |
-          cd immortalwrt
+          cd sdk
           if [ "${{ inputs.compile_kmod }}" = "true" ]; then
-            VERMAGIC=${{ inputs.custom_vermagic }}
-            if [ -z "$VERMAGIC" ]; then
-              VERMAGIC=$(cat build_dir/target-*/linux-*/linux-*/.vermagic)
-            fi
-            echo "Using vermagic: $VERMAGIC"
-            make package/kmod-amneziawg/{clean,download,prepare,compile} VERMAGIC_OVERRIDE="$VERMAGIC" -j$(nproc)
+            make package/kmod-amneziawg/{clean,download,prepare,compile} -j$(nproc)
           fi
           if [ "${{ inputs.compile_go }}" = "true" ]; then
             make package/amneziawg-tools/{clean,download,prepare,compile} -j$(nproc)
             make package/luci-app-amneziawg/{clean,download,prepare,compile} -j$(nproc)
           fi
 
-      - name: Collect release artifacts
+      - name: Prepare artifacts
         run: |
-          set -e
-          cd immortalwrt
+          cd sdk
           mkdir -p awgrelease
-          postfix="v24.10.3_aarch64_cortex-a53_mediatek_filogic"
-
-          echo "=== Listing built packages (bin/packages) ==="
-          ls -R bin/packages/aarch64_cortex-a53 || true
-
-          echo "=== Listing target packages (bin/targets) ==="
-          ls -R bin/targets/mediatek/filogic || true
-
-          find_pkg() {
-            local pattern=$1
-            local dest=$2
-            file=$(find bin/packages/aarch64_cortex-a53 -type f -name "$pattern" | head -n1 || true)
-            if [ -n "$file" ]; then
-              cp "$file" "awgrelease/${dest}_${postfix}.ipk"
-              echo "Copied: $file -> awgrelease/${dest}_${postfix}.ipk"
-            else
-              echo "WARNING: package $pattern not found!"
-            fi
-          }
-
-          find_pkg "amneziawg-tools_*.ipk" "amneziawg-tools"
-          find_pkg "luci-app-amneziawg_*.ipk" "luci-app-amneziawg"
-
-          # kmod всегда лежит в targets
-          kmod=$(find bin/targets/mediatek/filogic/packages -type f -name "kmod-amneziawg_*.ipk" | head -n1 || true)
-          if [ -n "$kmod" ]; then
-            cp "$kmod" "awgrelease/kmod-amneziawg_${postfix}.ipk"
-            echo "Copied: $kmod -> awgrelease/kmod-amneziawg_${postfix}.ipk"
-          else
-            echo "WARNING: kmod-amneziawg not found!"
-          fi
-
-          echo "=== Release artifacts collected ==="
-          ls -lh awgrelease
+          postfix="v${{ inputs.immortal_tag }}_${{ inputs.pkgarch }}_${{ inputs.target }}_${{ inputs.subtarget }}"
+          cp bin/packages/${{ inputs.pkgarch }}/awgopenwrt/amneziawg-tools_*.ipk awgrelease/amneziawg-tools_${postfix}.ipk || true
+          cp bin/packages/${{ inputs.pkgarch }}/awgopenwrt/luci-app-amneziawg_*.ipk awgrelease/luci-app-amneziawg_${postfix}.ipk || true
+          cp bin/targets/${{ inputs.target}}/${{ inputs.subtarget}}/packages/kmod-amneziawg_*.ipk awgrelease/kmod-amneziawg_${postfix}.ipk || true
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: amneziawg-${{ inputs.immortal_tag }}_${{ inputs.pkgarch }}_${{ inputs.target }}_${{ inputs.subtarget }}
-          path: immortalwrt/awgrelease/*
+          path: sdk/awgrelease/*
