@@ -1,4 +1,4 @@
-name: Build AmneziaWG on ImmortalWrt 
+name: Build AmneziaWG on ImmortalWrt
 
 on:
   workflow_dispatch:
@@ -23,21 +23,6 @@ on:
         required: true
         type: string
         default: "filogic"
-      compile_kmod:
-        description: "Compile kernel module"
-        required: true
-        type: boolean
-        default: true
-      compile_go:
-        description: "Compile Go implementation"
-        required: true
-        type: boolean
-        default: true
-      custom_vermagic:
-        description: "Override vermagic (optional)"
-        required: false
-        type: string
-        default: ""
 
 jobs:
   build:
@@ -60,12 +45,11 @@ jobs:
       - name: Copy AmneziaWG packages into SDK
         run: |
           mkdir -p sdk/package
-          cp -r amneziawg/amneziawg-go sdk/package/
-          cp -r amneziawg/amneziawg-tools sdk/package/
           cp -r amneziawg/kmod-amneziawg sdk/package/
           cp -r amneziawg/luci-proto-amneziawg sdk/package/
+          cp -r amneziawg/amneziawg-tools sdk/package/
 
-      - name: Update PKG_SOURCE_VERSION & HASH
+      - name: Update PKG_SOURCE_VERSION & HASH (except luci-proto-amneziawg)
         run: |
           set -e -x
           update_pkg() {
@@ -86,27 +70,20 @@ jobs:
               echo "Warning: directory $pkg_dir not found"
             fi
           }
-          update_pkg "amneziawg/amneziawg-go" "https://github.com/amnezia-vpn/amneziawg-go.git" "master"
-          update_pkg "amneziawg/amneziawg-tools" "https://github.com/amnezia-vpn/amneziawg-tools.git" "master"
-          update_pkg "amneziawg/kmod-amneziawg" "https://github.com/amnezia-vpn/amneziawg-linux-kernel-module.git" "feature/awg2"
+          update_pkg "kmod-amneziawg" "https://github.com/amnezia-vpn/amneziawg-linux-kernel-module.git" "feature/awg2"
+          update_pkg "amneziawg-tools" "https://github.com/amnezia-vpn/amneziawg-tools.git" "master"
+          # luci-proto-amneziawg не обновляется автоматически
 
-      - name: Build packages using SDK
+      - name: Build AmneziaWG packages in SDK
         run: |
           cd sdk
-          # kmod
-          if [ "${{ inputs.compile_kmod }}" = "true" ]; then
-            VERMAGIC=${{ inputs.custom_vermagic }}
-            if [ -z "$VERMAGIC" ]; then
-              VERMAGIC=$(cat build_dir/target-*/linux-*/linux-*/.vermagic)
-            fi
-            echo "Using vermagic: $VERMAGIC"
-            make package/kmod-amneziawg/{clean,download,prepare,compile} VERMAGIC_OVERRIDE="$VERMAGIC" -j$(nproc)
-          fi
-          # Go tools & luci-proto
-          if [ "${{ inputs.compile_go }}" = "true" ]; then
-            make package/amneziawg-tools/{clean,download,prepare,compile} -j$(nproc)
-            make package/luci-proto-amneziawg/{clean,download,prepare,compile} -j$(nproc)
-          fi
+          make tools/install -j$(nproc)
+          make toolchain/install -j$(nproc)
+          make target/linux/compile -j$(nproc)
+
+          make package/kmod-amneziawg/{clean,download,prepare,compile} -j$(nproc)
+          make package/amneziawg-tools/{clean,download,prepare,compile} -j$(nproc)
+          make package/luci-proto-amneziawg/{clean,download,prepare,compile} -j$(nproc)
 
       - name: Prepare artifacts
         run: |
