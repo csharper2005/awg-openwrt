@@ -78,22 +78,14 @@ jobs:
         run: |
           cd sdk
 
-          # Сборка ядра (только для target) — нужно для kmod
-          echo "--- Compile kernel ---"
-          make target/linux/compile -j$(nproc)
+          # Обновляем feeds (если нужно)
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
 
-          # Сборка kmod-amneziawg
-          echo "--- Build kmod-amneziawg ---"
+          # Собираем только нужные пакеты, не трогая menuconfig
           make package/kmod-amneziawg/{clean,download,prepare,compile} -j$(nproc)
-
-          # Сборка amneziawg-tools (Go)
-          echo "--- Build amneziawg-tools ---"
           make package/amneziawg-tools/{clean,download,prepare,compile} -j$(nproc)
-
-          # Сборка luci-proto-amneziawg
-          echo "--- Build luci-proto-amneziawg ---"
           make package/luci-proto-amneziawg/{clean,download,prepare,compile} -j$(nproc)
-
 
       - name: Prepare artifacts
         run: |
