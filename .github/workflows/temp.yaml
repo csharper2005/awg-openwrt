@@ -123,6 +123,18 @@ jobs:
             make package/luci-app-amneziawg/{clean,download,prepare,compile} -j$(nproc)
           fi
 
+      - name: Check VERMAGIC of kmod-amneziawg
+        if: ${{ inputs.compile_kmod == 'true' }}
+        run: |
+          cd immortalwrt
+          KMOD_PATH=$(find build_dir/target-*/linux-*/amneziawg-kmod-* -name "amneziawg.ko" | head -n1)
+          if [ -f "$KMOD_PATH" ]; then
+            echo "Found module at: $KMOD_PATH"
+            modinfo "$KMOD_PATH" | grep vermagic
+          else
+            echo "Module not found, did compilation succeed?"
+          fi
+
       - name: Prepare artifacts
         run: |
           cd sdk
