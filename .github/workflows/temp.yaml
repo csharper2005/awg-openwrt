@@ -133,14 +133,45 @@ jobs:
             make package/luci-app-amneziawg/{clean,download,prepare,compile} -j$(nproc)
           fi
 
-      - name: Prepare artifacts
+      - name: Collect release artifacts
         run: |
+          set -e
           cd immortalwrt
           mkdir -p awgrelease
-          postfix="v${{ inputs.immortal_tag }}_${{ inputs.pkgarch }}_${{ inputs.target }}_${{ inputs.subtarget }}"
-          cp bin/packages/${{ inputs.pkgarch }}/awgopenwrt/amneziawg-tools_*.ipk awgrelease/amneziawg-tools_${postfix}.ipk
-          cp bin/packages/${{ inputs.pkgarch }}/awgopenwrt/luci-app-amneziawg_*.ipk awgrelease/luci-app-amneziawg_${postfix}.ipk
-          cp bin/targets/${{ inputs.target}}/${{ inputs.subtarget}}/packages/kmod-amneziawg_*.ipk awgrelease/kmod-amneziawg_${postfix}.ipk
+          postfix="v24.10.3_aarch64_cortex-a53_mediatek_filogic"
+
+          echo "=== Listing built packages (bin/packages) ==="
+          ls -R bin/packages/aarch64_cortex-a53 || true
+
+          echo "=== Listing target packages (bin/targets) ==="
+          ls -R bin/targets/mediatek/filogic || true
+
+          find_pkg() {
+            local pattern=$1
+            local dest=$2
+            file=$(find bin/packages/aarch64_cortex-a53 -type f -name "$pattern" | head -n1 || true)
+            if [ -n "$file" ]; then
+              cp "$file" "awgrelease/${dest}_${postfix}.ipk"
+              echo "Copied: $file -> awgrelease/${dest}_${postfix}.ipk"
+            else
+              echo "WARNING: package $pattern not found!"
+            fi
+          }
+
+          find_pkg "amneziawg-tools_*.ipk" "amneziawg-tools"
+          find_pkg "luci-app-amneziawg_*.ipk" "luci-app-amneziawg"
+
+          # kmod всегда лежит в targets
+          kmod=$(find bin/targets/mediatek/filogic/packages -type f -name "kmod-amneziawg_*.ipk" | head -n1 || true)
+          if [ -n "$kmod" ]; then
+            cp "$kmod" "awgrelease/kmod-amneziawg_${postfix}.ipk"
+            echo "Copied: $kmod -> awgrelease/kmod-amneziawg_${postfix}.ipk"
+          else
+            echo "WARNING: kmod-amneziawg not found!"
+          fi
+
+          echo "=== Release artifacts collected ==="
+          ls -lh awgrelease
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
