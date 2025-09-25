@@ -141,47 +141,50 @@ jobs:
         find "openwrt/bin/targets/${{ inputs.openwrt_target }}/${{ inputs.openwrt_subtarget }}/packages" -maxdepth 1 -type f -name 'kmod-amneziawg*' -exec cp {} awgrelease \;
         find "openwrt/bin/packages/${{ inputs.openwrt_arch }}/awgopenwrt" -maxdepth 1 -type f \( -name '*.ipk' -o -name '*.apk' \) -exec cp {} awgrelease \;
 
-    - name: Release AmneziaWG packages
+    - name: Create Release and Upload IPK
       uses: actions/github-script@v6
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         script: |
-          const { execSync } = require('child_process');
-          const fs = require('fs');
-          const path = require('path');
+          const tagDate = new Date().toISOString().slice(0,10).replace(/-/g,'');
+          const tag = `amneziawg-${{ inputs.firmware_type }}-${tagDate}`;
+          const releaseName = tag;
+          const releaseBody = "Автоматически сгенерированный релиз AmneziaWG";
 
-          // формируем тег по текущей дате
-          const today = new Date().toISOString().slice(0,10).replace(/-/g,'');
-          const releaseTag = `amneziawg-${{ inputs.firmware_type }}-${today}`;
-          console.log(`Creating release ${releaseTag}`);
+          // Создаём релиз
+          const { data: release } = await github.rest.repos.createRelease({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            tag_name: tag,
+            name: releaseName,
+            body: releaseBody,
+            draft: false,
+            prerelease: false
+          });
 
-          // создаём релиз
-          execSync(`gh release create ${releaseTag} -t "${releaseTag}" -n "Автоматически сгенерированный релиз AmneziaWG"`, { stdio: 'inherit', env: process.env });
+          const fs = require("fs");
+          const path = require("path");
+          const dir = "awgrelease";
 
-          // читаем артефакты из awgrelease
-          const artifactDir = 'awgrelease';
-          if (!fs.existsSync(artifactDir)) {
-            throw new Error(`Directory ${artifactDir} not found`);
-          }
-          const files = fs.readdirSync(artifactDir).filter(f => f.endsWith('.ipk'));
+          const files = fs.readdirSync(dir).filter(f => f.endsWith(".ipk"));
+          for (const file of files) {
+            const filePath = path.join(dir, file);
 
-          if (files.length === 0) {
-            console.log("No IPK files found to upload");
-          } else {
-            files.forEach(file => {
-              const base = path.basename(file, '.ipk');
-              // формируем новое имя: base_YYYYMMDD_arch-firmware.ipk
-              const newName = `${base}_${today}_${{ inputs.openwrt_arch }}-${{ inputs.firmware_type }}.ipk`;
-              const oldPath = path.join(artifactDir, file);
-              const newPath = path.join(artifactDir, newName);
-              fs.copyFileSync(oldPath, newPath);
-              console.log(`Uploading ${newName}`);
-              execSync(`gh release upload ${releaseTag} ${newPath} --repo ${{ github.repository }}`, { stdio: 'inherit', env: process.env });
+            // Конструируем новое имя
+            const newName = `kmod-amneziawg_${tagDate}_${{ inputs.openwrt_arch }}-${{ inputs.firmware_type }}.ipk`;
+            const newPath = path.join(dir, newName);
+            fs.renameSync(filePath, newPath);
+
+            // Загружаем в релиз
+            await github.rest.repos.uploadReleaseAsset({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              release_id: release.id,
+              name: newName,
+              data: fs.readFileSync(newPath)
             });
           }
-
-          console.log("Release completed successfully.");
 
             execSync(`gh release upload ${releaseTag} awgrelease/${newName}`, { stdio: 'inherit' });
           });
