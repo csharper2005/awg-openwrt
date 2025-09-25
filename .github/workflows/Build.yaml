@@ -1,4 +1,4 @@
-name: Build AmneziaWG from SDK
+name: Build AmneziaWG from OpenWRT\ImmortalWRT
 
 on:
   workflow_dispatch:
