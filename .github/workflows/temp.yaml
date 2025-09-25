@@ -46,11 +46,23 @@ jobs:
           fetch-depth: 0
           path: amneziawg
 
-      - name: Download ImmortalWrt SDK
+      - name: Download and extract ImmortalWrt SDK
         run: |
-          wget https://downloads.immortalwrt.org/releases/${{ inputs.immortal_tag }}/targets/${{ inputs.target}}/${{ inputs.subtarget}}/immortalwrt-sdk-${{ inputs.immortal_tag }}-${{ inputs.target}}-${{ inputs.subtarget}}_gcc-13.3.0_musl.Linux-x86_64.tar.zst
-          tar --zstd -xf immortalwrt-sdk-*.tar.zst
-          mv immortalwrt-sdk-* sdk
+          mkdir -p sdk_tmp
+          cd sdk_tmp
+          SDK_URL="https://downloads.immortalwrt.org/releases/${{ inputs.immortal_tag }}/targets/${{ inputs.target}}/${{ inputs.subtarget}}/immortalwrt-sdk-${{ inputs.immortal_tag }}-${{ inputs.target}}-${{ inputs.subtarget}}_gcc-13.3.0_musl.Linux-x86_64.tar.zst"
+          wget -O sdk.tar.zst "$SDK_URL"
+          
+          # Узнаем название корневой директории внутри архива
+          SDK_DIR=$(tar --zstd -tf sdk.tar.zst | head -1 | cut -d/ -f1)
+          
+          # Распаковываем архив
+          tar --zstd -xf sdk.tar.zst
+          
+          # Переименовываем в стандартное имя
+          mv "$SDK_DIR" ../sdk
+          cd ..
+          rm -rf sdk_tmp
 
       - name: Copy AmneziaWG packages into SDK
         run: |
