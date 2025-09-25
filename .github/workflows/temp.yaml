@@ -97,6 +97,13 @@ jobs:
           make package/amneziawg-tools/{clean,download,prepare,compile} -j$(nproc)
           make package/luci-proto-amneziawg/{clean,download,prepare,compile} -j$(nproc)
 
+      - name: Check built packages
+        run: |
+          echo "Kmod packages:"
+          ls -l bin/targets/${{ inputs.target}}/${{ inputs.subtarget}}/packages/
+          echo "Arch packages:"
+          ls -l bin/packages/${{ inputs.pkgarch }}/base/
+          ls -l bin/packages/${{ inputs.pkgarch }}/packages/
           
       - name: Prepare artifacts
         run: |
