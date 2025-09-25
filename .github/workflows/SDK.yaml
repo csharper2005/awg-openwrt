@@ -155,6 +155,6 @@ jobs:
           **OpenWrt/ImmortalWrt Version:** ${{ inputs.openwrt_version }}
           **Architecture:** ${{ inputs.openwrt_arch }}
           **Target/Subtarget:** ${{ inputs.openwrt_target }}/${{ inputs.openwrt_subtarget }}
-        prerelease: true
+        prerelease: false
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
