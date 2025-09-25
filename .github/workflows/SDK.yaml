@@ -141,39 +141,25 @@ jobs:
         find "openwrt/bin/targets/${{ inputs.openwrt_target }}/${{ inputs.openwrt_subtarget }}/packages" -maxdepth 1 -type f -name 'kmod-amneziawg*' -exec cp {} awgrelease \;
         find "openwrt/bin/packages/${{ inputs.openwrt_arch }}/awgopenwrt" -maxdepth 1 -type f \( -name '*.ipk' -o -name '*.apk' \) -exec cp {} awgrelease \;
 
-    - name: Upload artifacts
-      uses: actions/upload-artifact@v4
+    - name: Release AmneziaWG packages
+      uses: actions/github-script@v6
       with:
-        name: amneziawg-${{ inputs.firmware_type }}-${{ inputs.openwrt_version }}_${{ inputs.openwrt_arch }}_${{ inputs.openwrt_target }}_${{ inputs.openwrt_subtarget }}
-        path: awgrelease/*
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        script: |
+          const { execSync } = require('child_process');
+          const fs = require('fs');
+          const path = require('path');
 
-    - name: Install GitHub CLI
-      run: |
-        sudo apt update
-        sudo apt install -y gh
+          const releaseTag = `amneziawg-${{ inputs.firmware_type }}-${new Date().toISOString().slice(0,10).replace(/-/g,'')}`;
+          console.log(`Creating release ${releaseTag}`);
+          execSync(`gh release create ${releaseTag} -t "${releaseTag}" -n "Автоматически сгенерированный релиз AmneziaWG"`, { stdio: 'inherit' });
 
-    - name: Create GitHub Release
-      id: create_release
-      uses: actions/create-release@v1
-      with:
-        tag_name: amneziawg-${{ inputs.firmware_type }}-$(date +%Y%m%d)
-        release_name: AmneziaWG ${{ inputs.firmware_type }} $(date +%Y.%m.%d)
-        draft: false
-        prerelease: false
-        body: "Автоматически сгенерированный релиз AmneziaWG"
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-    - name: Upload IPK packages to Release
-      run: |
-        TAG="amneziawg-${{ inputs.firmware_type }}-$(date +%Y%m%d)"
-        for f in awgrelease/*.ipk; do
-          base=$(basename "$f" .ipk)
-          version=$(echo "$base" | grep -oP '\d{8}')
-          arch=$(echo "$base" | awk -F_ '{print $3}')
-          new_name="${base%%_*}_${version}_${arch}-${{ inputs.firmware_type }}.ipk"
-          cp "$f" "$new_name"
-          gh release upload "$TAG" "$new_name" --repo $GITHUB_REPOSITORY
-        done
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          const files = fs.readdirSync('awgrelease').filter(f => f.endsWith('.ipk'));
+          files.forEach(file => {
+            const base = path.basename(file, '.ipk');
+            const version = new Date().toISOString().slice(0,10).replace(/-/g,'');
+            const newName = `${base}_${version}_${{ inputs.openwrt_arch }}-${{ inputs.firmware_type }}.ipk`;
+            fs.copyFileSync(path.join('awgrelease', file), path.join('awgrelease', newName));
+            console.log(`Uploading ${newName}`);
+            execSync(`gh release upload ${releaseTag} awgrelease/${newName}`, { stdio: 'inherit' });
+          });
