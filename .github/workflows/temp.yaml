@@ -49,7 +49,7 @@ jobs:
           cp -r amneziawg/luci-proto-amneziawg sdk/package/
           cp -r amneziawg/amneziawg-tools sdk/package/
 
-      - name: Update PKG_SOURCE_VERSION & HASH (except luci-proto-amneziawg)
+      - name: Update PKG_SOURCE_VERSION & HASH
         run: |
           set -e -x
           update_pkg() {
@@ -77,10 +77,15 @@ jobs:
       - name: Build AmneziaWG packages in SDK
         run: |
           cd sdk
-          make tools/install -j$(nproc)
-          make toolchain/install -j$(nproc)
-          make target/linux/compile -j$(nproc)
+          # Автоматическая генерация .config для headless-сборки
+          make defconfig
 
+          # Установка инструментов и toolchain без интерактивного menuconfig
+          make tools/install -j$(nproc) V=99
+          make toolchain/install -j$(nproc) V=99
+          make target/linux/compile -j$(nproc) V=99
+
+          # Сборка пакетов
           make package/kmod-amneziawg/{clean,download,prepare,compile} -j$(nproc)
           make package/amneziawg-tools/{clean,download,prepare,compile} -j$(nproc)
           make package/luci-proto-amneziawg/{clean,download,prepare,compile} -j$(nproc)
