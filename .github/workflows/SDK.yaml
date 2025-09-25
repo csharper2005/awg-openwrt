@@ -150,7 +150,8 @@ jobs:
         name: 'AmneziaWG ${{ inputs.firmware_type }}-${{ inputs.openwrt_version }} for ${{ inputs.openwrt_arch }}'
         body: |
           Automatic build of AmneziaWG packages for OpenWrt/ImmortalWrt.
-          
+
+          **Build Date:** ${{ steps.get_date.outputs.date }}
           **Firmware:** ${{ inputs.firmware_type }}
           **OpenWrt/ImmortalWrt Version:** ${{ inputs.openwrt_version }}
           **Architecture:** ${{ inputs.openwrt_arch }}
