@@ -52,14 +52,18 @@ jobs:
       - name: Update PKG_SOURCE_VERSION & HASH
         run: |
           set -e -x
+          cd sdk/package
+
           update_pkg() {
             local pkg_dir="$1"
             local repo="$2"
             local branch="$3"
             echo "--- Updating $pkg_dir from $branch ---"
+
             commit=$(git ls-remote "$repo" "$branch" | awk '{print $1; exit}')
             url="$repo/archive/$commit.tar.gz"
             hash=$(curl -L --retry 3 -s "$url" | sha256sum | cut -d' ' -f1)
+
             if [ -d "$pkg_dir" ]; then
               cd "$pkg_dir"
               sed -i "s/^PKG_SOURCE_VERSION:=.*/PKG_SOURCE_VERSION:=$commit/" Makefile
@@ -70,9 +74,12 @@ jobs:
               echo "Warning: directory $pkg_dir not found"
             fi
           }
+
           update_pkg "kmod-amneziawg" "https://github.com/amnezia-vpn/amneziawg-linux-kernel-module.git" "feature/awg2"
           update_pkg "amneziawg-tools" "https://github.com/amnezia-vpn/amneziawg-tools.git" "master"
-          # luci-proto-amneziawg не обновляется автоматически
+
+          cd - >/dev/null
+
 
       - name: Setup feeds & config
         run: |
