@@ -145,14 +145,19 @@ jobs:
       uses: actions/github-script@v6
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        FIRMWARE_TYPE: ${{ inputs.firmware_type }}
+        OPENWRT_ARCH: ${{ inputs.openwrt_arch }}
       with:
         script: |
+          const fs = require("fs");
+          const path = require("path");
+
           const tagDate = new Date().toISOString().slice(0,10).replace(/-/g,'');
-          const tag = `amneziawg-${{ inputs.firmware_type }}-${tagDate}`;
+          const tag = `amneziawg-${process.env.FIRMWARE_TYPE}-${tagDate}`;
           const releaseName = tag;
           const releaseBody = "Автоматически сгенерированный релиз AmneziaWG";
 
-          // Создаём релиз
+          // Создание релиза
           const { data: release } = await github.rest.repos.createRelease({
             owner: context.repo.owner,
             repo: context.repo.repo,
@@ -163,20 +168,18 @@ jobs:
             prerelease: false
           });
 
-          const fs = require("fs");
-          const path = require("path");
+          // Обработка ipk файлов
           const dir = "awgrelease";
-
           const files = fs.readdirSync(dir).filter(f => f.endsWith(".ipk"));
           for (const file of files) {
             const filePath = path.join(dir, file);
 
-            // Конструируем новое имя
-            const newName = `kmod-amneziawg_${tagDate}_${{ inputs.openwrt_arch }}-${{ inputs.firmware_type }}.ipk`;
+            // Переименование
+            const newName = `kmod-amneziawg_${tagDate}_${process.env.OPENWRT_ARCH}-${process.env.FIRMWARE_TYPE}.ipk`;
             const newPath = path.join(dir, newName);
             fs.renameSync(filePath, newPath);
 
-            // Загружаем в релиз
+            // Загрузка
             await github.rest.repos.uploadReleaseAsset({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -185,6 +188,3 @@ jobs:
               data: fs.readFileSync(newPath)
             });
           }
-
-            execSync(`gh release upload ${releaseTag} awgrelease/${newName}`, { stdio: 'inherit' });
-          });
