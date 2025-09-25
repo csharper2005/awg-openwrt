@@ -111,7 +111,7 @@ jobs:
           postfix="v${{ inputs.immortal_tag }}_${{ inputs.pkgarch }}_${{ inputs.target }}_${{ inputs.subtarget }}"
           cp bin/targets/${{ inputs.target}}/${{ inputs.subtarget}}/packages/kmod-amneziawg_*.ipk awgrelease/kmod-amneziawg_${postfix}.ipk
           cp bin/packages/${{ inputs.pkgarch }}/base/amneziawg-tools_*.ipk awgrelease/amneziawg-tools_${postfix}.ipk
-          сp bin/packages/${{ inputs.pkgarch }}/base/luci-proto-amneziawg_*.ipk awgrelease/luci-proto-amneziawg_${postfix}.ipk
+          cp bin/packages/${{ inputs.pkgarch }}/base/luci-proto-amneziawg_*.ipk awgrelease/luci-proto-amneziawg_${postfix}.ipk
 
 
       - name: Upload artifacts
