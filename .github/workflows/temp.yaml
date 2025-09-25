@@ -114,38 +114,51 @@ jobs:
 
       - name: Build AmneziaWG packages
         run: |
-          cd sdk
+          cd immortalwrt
+
           if [ "${{ inputs.compile_kmod }}" = "true" ]; then
-            make package/kmod-amneziawg/{clean,download,prepare,compile} -j$(nproc)
-          fi
-          if [ "${{ inputs.compile_go }}" = "true" ]; then
-            make package/amneziawg-tools/{clean,download,prepare,compile} -j$(nproc)
-            make package/luci-app-amneziawg/{clean,download,prepare,compile} -j$(nproc)
+            VERMAGIC=${{ inputs.custom_vermagic }}
+            if [ -z "$VERMAGIC" ]; then
+              VERMAGIC=$(cat build_dir/target-*/linux-*/linux-*/.vermagic)
+            fi
+            echo "Using vermagic: $VERMAGIC"
+            make package/kmod-amneziawg/{clean,download,prepare,compile} VERMAGIC_OVERRIDE="$VERMAGIC" -j$(nproc)
           fi
 
-      - name: Check VERMAGIC of kmod-amneziawg
-        if: ${{ inputs.compile_kmod == 'true' }}
-        run: |
-          cd immortalwrt
-          KMOD_PATH=$(find build_dir/target-*/linux-*/amneziawg-kmod-* -name "amneziawg.ko" | head -n1)
-          if [ -f "$KMOD_PATH" ]; then
-            echo "Found module at: $KMOD_PATH"
-            modinfo "$KMOD_PATH" | grep vermagic
-          else
-            echo "Module not found, did compilation succeed?"
+          if [ "${{ inputs.compile_go }}" = "true" ]; then
+            for pkg in amneziawg-tools luci-app-amneziawg; do
+              make package/$pkg/{clean,download,prepare,compile} -j$(nproc)
+              echo "--- Checking built files for $pkg ---"
+              ls -lh bin/packages/${{ inputs.pkgarch }}/awgopenwrt/$pkg*.ipk || echo "Warning: $pkg .ipk not found"
+            done
           fi
 
       - name: Prepare artifacts
         run: |
-          cd sdk
+          cd immortalwrt
           mkdir -p awgrelease
           postfix="v${{ inputs.immortal_tag }}_${{ inputs.pkgarch }}_${{ inputs.target }}_${{ inputs.subtarget }}"
-          cp bin/packages/${{ inputs.pkgarch }}/awgopenwrt/amneziawg-tools_*.ipk awgrelease/amneziawg-tools_${postfix}.ipk || true
-          cp bin/packages/${{ inputs.pkgarch }}/awgopenwrt/luci-app-amneziawg_*.ipk awgrelease/luci-app-amneziawg_${postfix}.ipk || true
-          cp bin/targets/${{ inputs.target}}/${{ inputs.subtarget}}/packages/kmod-amneziawg_*.ipk awgrelease/kmod-amneziawg_${postfix}.ipk || true
+
+          # kmod
+          kmod_file=$(ls bin/targets/${{ inputs.target}}/${{ inputs.subtarget}}/packages/kmod-amneziawg_*.ipk 2>/dev/null || true)
+          if [ -n "$kmod_file" ]; then
+            cp "$kmod_file" awgrelease/kmod-amneziawg_${postfix}.ipk
+          else
+            echo "Warning: kmod-amneziawg .ipk not found"
+          fi
+
+          # Go packages
+          for pkg in amneziawg-tools luci-app-amneziawg; do
+            file=$(ls bin/packages/${{ inputs.pkgarch }}/awgopenwrt/${pkg}_*.ipk 2>/dev/null || true)
+            if [ -n "$file" ]; then
+              cp "$file" awgrelease/${pkg}_${postfix}.ipk
+            else
+              echo "Warning: $pkg .ipk not found"
+            fi
+          done
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: amneziawg-${{ inputs.immortal_tag }}_${{ inputs.pkgarch }}_${{ inputs.target }}_${{ inputs.subtarget }}
-          path: sdk/awgrelease/*
+          path: immortalwrt/awgrelease/*
