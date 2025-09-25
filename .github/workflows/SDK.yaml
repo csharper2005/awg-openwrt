@@ -141,16 +141,13 @@ jobs:
         mkdir awgrelease
         find "openwrt/bin/targets/${{ inputs.openwrt_target }}/${{ inputs.openwrt_subtarget }}/packages" -maxdepth 1 -type f -name 'kmod-amneziawg*' -exec cp {} awgrelease \;
         find "openwrt/bin/packages/${{ inputs.openwrt_arch }}/awgopenwrt" -maxdepth 1 -type f \( -name '*.ipk' -o -name '*.apk' \) -exec cp {} awgrelease \;
-        echo "artifacts=$(ls awgrelease)" >> "$GITHUB_OUTPUT"
 
-    - name: Create Release
-      id: create_release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - name: Create Release and Upload Assets
+      uses: softprops/action-gh-release@v1
       with:
+        files: awgrelease/*
         tag_name: ${{ inputs.firmware_type }}-${{ inputs.openwrt_version }}-${{ inputs.openwrt_arch }}
-        release_name: 'AmneziaWG ${{ inputs.firmware_type }}-${{ inputs.openwrt_version }} for ${{ inputs.openwrt_arch }}'
+        name: 'AmneziaWG ${{ inputs.firmware_type }}-${{ inputs.openwrt_version }} for ${{ inputs.openwrt_arch }}'
         body: |
           Automatic build of AmneziaWG packages for OpenWrt/ImmortalWrt.
           
@@ -159,12 +156,5 @@ jobs:
           **Architecture:** ${{ inputs.openwrt_arch }}
           **Target/Subtarget:** ${{ inputs.openwrt_target }}/${{ inputs.openwrt_subtarget }}
         prerelease: true
-        draft: false
-    
-    - name: Upload Release Asset
-      id: upload-release-asset 
-      uses: softprops/action-gh-release@v1
-      with:
-        files: awgrelease/*
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
