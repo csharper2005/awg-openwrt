@@ -74,28 +74,34 @@ jobs:
           update_pkg "amneziawg-tools" "https://github.com/amnezia-vpn/amneziawg-tools.git" "master"
           # luci-proto-amneziawg не обновляется автоматически
 
-      - name: Build AmneziaWG packages in SDK
+      - name: Setup feeds & config
         run: |
           cd sdk
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
+          cat > .config <<EOF
+          CONFIG_PACKAGE_kmod-amneziawg=m
+          CONFIG_PACKAGE_amneziawg-tools=m
+          CONFIG_PACKAGE_luci-proto-amneziawg=m
+          CONFIG_PACKAGE_kmod-crypto-lib-chacha20=m
+          CONFIG_PACKAGE_kmod-crypto-lib-chacha20poly1305=m
+          CONFIG_PACKAGE_kmod-crypto-chacha20poly1305=m
+          EOF
+          make defconfig
 
-          # Копируем готовый .config с включенными нужными пакетами
-          if [ ! -f .config ]; then
-            echo "--- Using default config for SDK ---"
-            # config.buildinfo из ImmortalWrt уже содержит нужные пакеты
-            wget -q https://downloads.immortalwrt.org/releases/24.10.3/targets/mediatek/filogic/config.buildinfo -O .config
-            echo "CONFIG_PACKAGE_kmod-amneziawg=m" >> .config
-            echo "CONFIG_PACKAGE_amneziawg-tools=m" >> .config
-            echo "CONFIG_PACKAGE_luci-proto-amneziawg=m" >> .config
-            make defconfig
+
+      - name: Build AmneziaWG packages
+        run: |
+          cd sdk
+          if [ "${{ inputs.compile_kmod }}" = "true" ]; then
+            make package/kmod-amneziawg/{clean,download,prepare,compile} -j$(nproc)
+          fi
+          if [ "${{ inputs.compile_go }}" = "true" ]; then
+            make package/amneziawg-tools/{clean,download,prepare,compile} -j$(nproc)
+            make package/luci-app-amneziawg/{clean,download,prepare,compile} -j$(nproc)
           fi
 
-          # Сборка пакетов (kmod, amneziawg-tools, luci-proto)
-          for pkg in kmod-amneziawg amneziawg-tools luci-proto-amneziawg; do
-            echo "--- Building package: $pkg ---"
-            make package/$pkg/{clean,download,prepare,compile} -j$(nproc)
-          done
-
-
+          
       - name: Prepare artifacts
         run: |
           cd sdk
