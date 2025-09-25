@@ -141,19 +141,28 @@ jobs:
         find "openwrt/bin/targets/${{ inputs.openwrt_target }}/${{ inputs.openwrt_subtarget }}/packages" -maxdepth 1 -type f -name 'kmod-amneziawg*' -exec cp {} awgrelease \;
         find "openwrt/bin/packages/${{ inputs.openwrt_arch }}/awgopenwrt" -maxdepth 1 -type f \( -name '*.ipk' -o -name '*.apk' \) -exec cp {} awgrelease \;
 
-    - name: Upload IPK packages to Release
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
       env:
-        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        TAG="amneziawg-${{ inputs.firmware_type }}-$(date +%Y%m%d)"
-        RELEASE_ID=$(gh api repos/${GITHUB_REPOSITORY}/releases/tags/$TAG --jq '.id')
-        for f in awgrelease/*.ipk; do
-          base="kmod-amneziawg_$(date +%Y%m%d)_${{ inputs.openwrt_arch }}-${{ inputs.firmware_type }}.ipk"
-          # удалить старый ассет с таким именем (если есть)
-          asset_id=$(gh api repos/${GITHUB_REPOSITORY}/releases/$RELEASE_ID/assets --jq ".[] | select(.name==\"$base\") | .id" || true)
-          if [ -n "$asset_id" ]; then
-            gh api repos/${GITHUB_REPOSITORY}/releases/assets/$asset_id -X DELETE
-          fi
-          cp "$f" "$base"
-          gh release upload "$TAG" "$base" --repo $GITHUB_REPOSITORY --clobber
-        done
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ inputs.firmware_type }}-${{ inputs.openwrt_version }}-${{ inputs.openwrt_arch }}
+        release_name: 'AmneziaWG ${{ inputs.firmware_type }}-${{ inputs.openwrt_version }} for ${{ inputs.openwrt_arch }}'
+        body: |
+          Automatic build of AmneziaWG packages for OpenWrt/ImmortalWrt.
+          
+          **Firmware:** ${{ inputs.firmware_type }}
+          **OpenWrt/ImmortalWrt Version:** ${{ inputs.openwrt_version }}
+          **Architecture:** ${{ inputs.openwrt_arch }}
+          **Target/Subtarget:** ${{ inputs.openwrt_target }}/${{ inputs.openwrt_subtarget }}
+        prerelease: true
+        draft: false
+    
+    - name: Upload Release Asset
+      id: upload-release-asset 
+      uses: softprops/action-gh-release@v1
+      with:
+        files: awgrelease/*
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
