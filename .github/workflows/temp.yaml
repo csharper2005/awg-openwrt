@@ -1,4 +1,4 @@
-name: Build AmneziaWG on ImmortalWrt
+name: OLD Build AmneziaWG on ImmortalWrt
 
 on:
   workflow_dispatch:
