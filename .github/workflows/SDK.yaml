@@ -146,3 +146,34 @@ jobs:
       with:
         name: amneziawg-${{ inputs.firmware_type }}-${{ inputs.openwrt_version }}_${{ inputs.openwrt_arch }}_${{ inputs.openwrt_target }}_${{ inputs.openwrt_subtarget }}
         path: awgrelease/*
+
+    - name: Install GitHub CLI
+      run: |
+        sudo apt update
+        sudo apt install -y gh
+
+    - name: Create GitHub Release
+      id: create_release
+      uses: actions/create-release@v1
+      with:
+        tag_name: amneziawg-${{ inputs.firmware_type }}-$(date +%Y%m%d)
+        release_name: AmneziaWG ${{ inputs.firmware_type }} $(date +%Y.%m.%d)
+        draft: false
+        prerelease: false
+        body: "Автоматически сгенерированный релиз AmneziaWG"
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Upload IPK packages to Release
+      run: |
+        TAG="amneziawg-${{ inputs.firmware_type }}-$(date +%Y%m%d)"
+        for f in awgrelease/*.ipk; do
+          base=$(basename "$f" .ipk)
+          version=$(echo "$base" | grep -oP '\d{8}')
+          arch=$(echo "$base" | awk -F_ '{print $3}')
+          new_name="${base%%_*}_${version}_${arch}-${{ inputs.firmware_type }}.ipk"
+          cp "$f" "$new_name"
+          gh release upload "$TAG" "$new_name" --repo $GITHUB_REPOSITORY
+        done
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
