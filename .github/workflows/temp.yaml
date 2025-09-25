@@ -77,18 +77,23 @@ jobs:
       - name: Build AmneziaWG packages in SDK
         run: |
           cd sdk
-          # Автоматическая генерация .config для headless-сборки
-          make defconfig
 
-          # Установка инструментов и toolchain без интерактивного menuconfig
-          make tools/install -j$(nproc) V=99
-          make toolchain/install -j$(nproc) V=99
-          make target/linux/compile -j$(nproc) V=99
+          # Сборка ядра (только для target) — нужно для kmod
+          echo "--- Compile kernel ---"
+          make target/linux/compile -j$(nproc)
 
-          # Сборка пакетов
+          # Сборка kmod-amneziawg
+          echo "--- Build kmod-amneziawg ---"
           make package/kmod-amneziawg/{clean,download,prepare,compile} -j$(nproc)
+
+          # Сборка amneziawg-tools (Go)
+          echo "--- Build amneziawg-tools ---"
           make package/amneziawg-tools/{clean,download,prepare,compile} -j$(nproc)
+
+          # Сборка luci-proto-amneziawg
+          echo "--- Build luci-proto-amneziawg ---"
           make package/luci-proto-amneziawg/{clean,download,prepare,compile} -j$(nproc)
+
 
       - name: Prepare artifacts
         run: |
