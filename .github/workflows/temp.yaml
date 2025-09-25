@@ -104,22 +104,15 @@ jobs:
           make package/amneziawg-tools/{clean,download,prepare,compile} -j$(nproc)
           make package/luci-proto-amneziawg/{clean,download,prepare,compile} -j$(nproc)
 
-      - name: Check built packages
-        run: |
-          echo "Kmod packages:"
-          ls -l bin/targets/${{ inputs.target}}/${{ inputs.subtarget}}/packages/
-          echo "Arch packages:"
-          ls -l bin/packages/${{ inputs.pkgarch }}/base/
-          ls -l bin/packages/${{ inputs.pkgarch }}/packages/
-          
       - name: Prepare artifacts
-        run: |
-          cd sdk
-          mkdir -p awgrelease
-          postfix="v${{ inputs.immortal_tag }}_${{ inputs.pkgarch }}_${{ inputs.target }}_${{ inputs.subtarget }}"
-          cp bin/packages/${{ inputs.pkgarch }}/awgopenwrt/amneziawg-tools_*.ipk awgrelease/amneziawg-tools_${postfix}.ipk
-          cp bin/packages/${{ inputs.pkgarch }}/awgopenwrt/luci-proto-amneziawg_*.ipk awgrelease/luci-proto-amneziawg_${postfix}.ipk
-          cp bin/targets/${{ inputs.target}}/${{ inputs.subtarget}}/packages/kmod-amneziawg_*.ipk awgrelease/kmod-amneziawg_${postfix}.ipk
+          run: |
+            cd sdk
+            mkdir -p awgrelease
+            postfix="v${{ inputs.immortal_tag }}_${{ inputs.pkgarch }}_${{ inputs.target }}_${{ inputs.subtarget }}"
+            cp bin/targets/${{ inputs.target}}/${{ inputs.subtarget}}/packages/kmod-amneziawg_*.ipk awgrelease/kmod-amneziawg_${postfix}.ipk
+            cp bin/packages/${{ inputs.pkgarch }}/base/amneziawg-tools_*.ipk awgrelease/amneziawg-tools_${postfix}.ipk
+            cp bin/packages/${{ inputs.pkgarch }}/base/luci-proto-amneziawg_*.ipk awgrelease/luci-proto-amneziawg_${postfix}.ipk
+
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
