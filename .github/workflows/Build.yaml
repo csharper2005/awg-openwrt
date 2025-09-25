@@ -100,7 +100,7 @@ jobs:
         ./openwrt/scripts/feeds install -a
         make -C openwrt defconfig
 
-    - name: Update PKG_SOURCE_VERSION & HASH
+    - name: Update Makefiles latest commits
       run: |
         set -e -x
         cd openwrt/package/feeds/awgopenwrt
