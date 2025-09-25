@@ -141,50 +141,19 @@ jobs:
         find "openwrt/bin/targets/${{ inputs.openwrt_target }}/${{ inputs.openwrt_subtarget }}/packages" -maxdepth 1 -type f -name 'kmod-amneziawg*' -exec cp {} awgrelease \;
         find "openwrt/bin/packages/${{ inputs.openwrt_arch }}/awgopenwrt" -maxdepth 1 -type f \( -name '*.ipk' -o -name '*.apk' \) -exec cp {} awgrelease \;
 
-    - name: Create Release and Upload IPK
-      uses: actions/github-script@v6
+    - name: Upload IPK packages to Release
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        FIRMWARE_TYPE: ${{ inputs.firmware_type }}
-        OPENWRT_ARCH: ${{ inputs.openwrt_arch }}
-      with:
-        script: |
-          const fs = require("fs");
-          const path = require("path");
-
-          const tagDate = new Date().toISOString().slice(0,10).replace(/-/g,'');
-          const tag = `amneziawg-${process.env.FIRMWARE_TYPE}-${tagDate}`;
-          const releaseName = tag;
-          const releaseBody = "Автоматически сгенерированный релиз AmneziaWG";
-
-          // Создание релиза
-          const { data: release } = await github.rest.repos.createRelease({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            tag_name: tag,
-            name: releaseName,
-            body: releaseBody,
-            draft: false,
-            prerelease: false
-          });
-
-          // Обработка ipk файлов
-          const dir = "awgrelease";
-          const files = fs.readdirSync(dir).filter(f => f.endsWith(".ipk"));
-          for (const file of files) {
-            const filePath = path.join(dir, file);
-
-            // Переименование
-            const newName = `kmod-amneziawg_${tagDate}_${process.env.OPENWRT_ARCH}-${process.env.FIRMWARE_TYPE}.ipk`;
-            const newPath = path.join(dir, newName);
-            fs.renameSync(filePath, newPath);
-
-            // Загрузка
-            await github.rest.repos.uploadReleaseAsset({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              release_id: release.id,
-              name: newName,
-              data: fs.readFileSync(newPath)
-            });
-          }
+      run: |
+        TAG="amneziawg-${{ inputs.firmware_type }}-$(date +%Y%m%d)"
+        RELEASE_ID=$(gh api repos/${GITHUB_REPOSITORY}/releases/tags/$TAG --jq '.id')
+        for f in awgrelease/*.ipk; do
+          base="kmod-amneziawg_$(date +%Y%m%d)_${{ inputs.openwrt_arch }}-${{ inputs.firmware_type }}.ipk"
+          # удалить старый ассет с таким именем (если есть)
+          asset_id=$(gh api repos/${GITHUB_REPOSITORY}/releases/$RELEASE_ID/assets --jq ".[] | select(.name==\"$base\") | .id" || true)
+          if [ -n "$asset_id" ]; then
+            gh api repos/${GITHUB_REPOSITORY}/releases/assets/$asset_id -X DELETE
+          fi
+          cp "$f" "$base"
+          gh release upload "$TAG" "$base" --repo $GITHUB_REPOSITORY --clobber
+        done
