@@ -7,7 +7,7 @@ on:
         description: "Firmware type"
         type: choice
         required: true
-        default: "openwrt"
+        default: "immortalwrt"
         options:
           - "openwrt"
           - "immortalwrt"
@@ -15,7 +15,7 @@ on:
         description: "OpenWrt/ImmortalWrt version"
         type: string
         required: true
-        default: "SNAPSHOT"
+        default: "24.10.3"
       amneziawg_version:
         description: "AmneziaWG version"
         type: string
