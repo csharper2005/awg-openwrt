@@ -143,23 +143,45 @@ jobs:
 
     - name: Release AmneziaWG packages
       uses: actions/github-script@v6
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        github-token: ${{ secrets.GITHUB_TOKEN }}
         script: |
           const { execSync } = require('child_process');
           const fs = require('fs');
           const path = require('path');
 
-          const releaseTag = `amneziawg-${{ inputs.firmware_type }}-${new Date().toISOString().slice(0,10).replace(/-/g,'')}`;
+          // формируем тег по текущей дате
+          const today = new Date().toISOString().slice(0,10).replace(/-/g,'');
+          const releaseTag = `amneziawg-${{ inputs.firmware_type }}-${today}`;
           console.log(`Creating release ${releaseTag}`);
-          execSync(`gh release create ${releaseTag} -t "${releaseTag}" -n "Автоматически сгенерированный релиз AmneziaWG"`, { stdio: 'inherit' });
 
-          const files = fs.readdirSync('awgrelease').filter(f => f.endsWith('.ipk'));
-          files.forEach(file => {
-            const base = path.basename(file, '.ipk');
-            const version = new Date().toISOString().slice(0,10).replace(/-/g,'');
-            const newName = `${base}_${version}_${{ inputs.openwrt_arch }}-${{ inputs.firmware_type }}.ipk`;
-            fs.copyFileSync(path.join('awgrelease', file), path.join('awgrelease', newName));
-            console.log(`Uploading ${newName}`);
+          // создаём релиз
+          execSync(`gh release create ${releaseTag} -t "${releaseTag}" -n "Автоматически сгенерированный релиз AmneziaWG"`, { stdio: 'inherit', env: process.env });
+
+          // читаем артефакты из awgrelease
+          const artifactDir = 'awgrelease';
+          if (!fs.existsSync(artifactDir)) {
+            throw new Error(`Directory ${artifactDir} not found`);
+          }
+          const files = fs.readdirSync(artifactDir).filter(f => f.endsWith('.ipk'));
+
+          if (files.length === 0) {
+            console.log("No IPK files found to upload");
+          } else {
+            files.forEach(file => {
+              const base = path.basename(file, '.ipk');
+              // формируем новое имя: base_YYYYMMDD_arch-firmware.ipk
+              const newName = `${base}_${today}_${{ inputs.openwrt_arch }}-${{ inputs.firmware_type }}.ipk`;
+              const oldPath = path.join(artifactDir, file);
+              const newPath = path.join(artifactDir, newName);
+              fs.copyFileSync(oldPath, newPath);
+              console.log(`Uploading ${newName}`);
+              execSync(`gh release upload ${releaseTag} ${newPath} --repo ${{ github.repository }}`, { stdio: 'inherit', env: process.env });
+            });
+          }
+
+          console.log("Release completed successfully.");
+
             execSync(`gh release upload ${releaseTag} awgrelease/${newName}`, { stdio: 'inherit' });
           });
