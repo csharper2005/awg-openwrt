@@ -135,11 +135,13 @@ jobs:
         make package/amneziawg-tools/{clean,download,prepare,compile} -j $(nproc)
 
     - name: Prepare artifacts
+      id: prepare_artifacts
       run: |
         set -e -x
         mkdir awgrelease
         find "openwrt/bin/targets/${{ inputs.openwrt_target }}/${{ inputs.openwrt_subtarget }}/packages" -maxdepth 1 -type f -name 'kmod-amneziawg*' -exec cp {} awgrelease \;
         find "openwrt/bin/packages/${{ inputs.openwrt_arch }}/awgopenwrt" -maxdepth 1 -type f \( -name '*.ipk' -o -name '*.apk' \) -exec cp {} awgrelease \;
+        echo "artifacts=$(ls awgrelease)" >> "$GITHUB_OUTPUT"
 
     - name: Create Release
       id: create_release
