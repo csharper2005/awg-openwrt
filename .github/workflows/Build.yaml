@@ -77,16 +77,22 @@ jobs:
           sdk_pattern="immortalwrt-sdk"
         fi
         
-        sdk_url=$(curl -s "${base_url}" | grep -oP "href=\"${sdk_pattern}[^\"]+\.tar\.zst\"" | sed -e 's/href="//' -e 's/"$//' | head -n1)
+        sdk_url=$(curl -s "${base_url}" | grep -oP "href=\"${sdk_pattern}[^\"]+\.tar\.(zst|xz)\"" | sed -e 's/href="//' -e 's/"$//' | head -n1)
         if [[ -z "$sdk_url" ]]; then
           echo "SDK file not found."
           exit 1
         fi
         curl -fsLO "$base_url$sdk_url"
         file_name=$(basename "$sdk_url")
-        tar -xf "$file_name"
-        rm -f *.tar.zst
-        mv *-sdk* openwrt
+        
+        if [[ "$file_name" == *.tar.xz ]]; then
+          tar -xf "$file_name"
+        else
+          tar -xf "$file_name"
+        fi
+
+        rm -f *.tar.zst *.tar.xz
+        mv *"${sdk_pattern}"* openwrt
 
         echo "src-cpy awgopenwrt ../amneziawg" >> openwrt/feeds.conf.default
         ./openwrt/scripts/feeds update -a
