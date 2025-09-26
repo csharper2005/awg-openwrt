@@ -7,7 +7,7 @@ on:
         description: "Firmware type"
         type: choice
         required: true
-        default: "immortalwrt"
+        default: "openwrt"
         options:
           - "openwrt"
           - "immortalwrt"
