@@ -42,15 +42,6 @@ msgstr "Импортирует настройки из существующег�
 msgid "AmneziaWG Settings"
 msgstr "Настройки AmneziaWG"
 
-msgid "Imports settings from an existing AmneziaWG configuration file"
-msgstr "Импортирует настройки из существующего файла конфигурации AmneziaWG"
-
-msgid "Imports settings from an existing AmneziaWG configuration file"
-msgstr "Импортирует настройки из существующего файла конфигурации AmneziaWG"
-
-msgid "Imports settings from an existing AmneziaWG configuration file"
-msgstr "Импортирует настройки из существующего файла конфигурации AmneziaWG"
-
 msgid ""
 "Further information about AmneziaWG interfaces and peers at <a href='https://"
 "docs.amnezia.org/documentation/amnezia-wg'>amnezia.org</a>."
