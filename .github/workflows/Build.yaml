@@ -77,7 +77,7 @@ jobs:
           sdk_pattern="immortalwrt-sdk"
         fi
         
-        sdk_url=$(curl -s "${base_url}" | grep -oP "href=\"${sdk_pattern}[^\"]+\.tar\.(zst|xz)\"" | sed -e 's/href="//' -e 's/"$//' | head -n1)
+        sdk_url=$(curl -s "${base_url}" | grep -oP "href=\"${sdk_pattern}[^\"]+\.tar\.[a-z0-9]+\"" | sed -e 's/href="//' -e 's/"$//' | head -n1)
         if [[ -z "$sdk_url" ]]; then
           echo "SDK file not found."
           exit 1
@@ -85,24 +85,20 @@ jobs:
         curl -fsLO "$base_url$sdk_url"
         file_name=$(basename "$sdk_url")
         
-        if [[ "$file_name" == *.tar.xz ]]; then
-          tar -xf "$file_name"
-        else
-          tar -xf "$file_name"
-        fi
-
-        rm -f *.tar.zst *.tar.xz
+        tar -xf "$file_name"
+        
+        rm -f *.tar.*
         mv *"${sdk_pattern}"* openwrt
 
         echo "src-cpy awgopenwrt ../amneziawg" >> openwrt/feeds.conf.default
         ./openwrt/scripts/feeds update -a
         curl -fsL "$base_url/config.buildinfo" > openwrt/.config
-        echo "CONFIG_PACKAGE_kmod-crypto-lib-chacha20=y" >> openwrt/.config
-        echo "CONFIG_PACKAGE_kmod-crypto-lib-chacha20poly1305=y" >> openwrt/.config
-        echo "CONFIG_PACKAGE_kmod-crypto-chacha20poly1305=y" >> openwrt/.config
-        echo "CONFIG_PACKAGE_kmod-amneziawg=y" >> openwrt/.config
-        echo "CONFIG_PACKAGE_amneziawg-tools=y" >> openwrt/.config
-        echo "CONFIG_PACKAGE_luci-proto-amneziawg=y" >> openwrt/.config
+        echo "CONFIG_PACKAGE_kmod-crypto-lib-chacha20=m" >> openwrt/.config
+        echo "CONFIG_PACKAGE_kmod-crypto-lib-chacha20poly1305=m" >> openwrt/.config
+        echo "CONFIG_PACKAGE_kmod-crypto-chacha20poly1305=m" >> openwrt/.config
+        echo "CONFIG_PACKAGE_kmod-amneziawg=m" >> openwrt/.config
+        echo "CONFIG_PACKAGE_amneziawg-tools=m" >> openwrt/.config
+        echo "CONFIG_PACKAGE_luci-proto-amneziawg=m" >> openwrt/.config
         ./openwrt/scripts/feeds install -a
         make -C openwrt defconfig
 
