@@ -15,7 +15,7 @@ on:
         description: "OpenWrt/ImmortalWrt version"
         type: string
         required: true
-        default: "24.10.3"
+        default: "24.10.4"
       amneziawg_version:
         description: "AmneziaWG version"
         type: string
@@ -132,9 +132,9 @@ jobs:
       run: |
         set -e -x
         cd openwrt
-        make package/kmod-amneziawg/{clean,download,prepare,compile} -j $(nproc)
-        make package/luci-proto-amneziawg/{clean,download,prepare,compile} -j $(nproc)
-        make package/amneziawg-tools/{clean,download,prepare,compile} -j $(nproc)
+        make package/kmod-amneziawg/{clean,download,prepare,compile} -j $(nproc) V=s
+        make package/luci-proto-amneziawg/{clean,download,prepare,compile} -j $(nproc) V=s
+        make package/amneziawg-tools/{clean,download,prepare,compile} -j $(nproc) V=s
 
     - name: Prepare artifacts
       id: prepare_artifacts
